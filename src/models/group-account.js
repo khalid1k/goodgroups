@@ -51,6 +51,14 @@ const GroupAccount = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    passwordResetToken: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    passwordResetExpires: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     timestamps: true,

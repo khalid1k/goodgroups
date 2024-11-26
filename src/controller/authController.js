@@ -5,6 +5,7 @@ const catchAsync = require("../utils/catchAsync");
 const IndividualUser = require("../models/individual-account");
 const GroupAccount = require("../models/group-account");
 const sendEmail = require("../utils/email");
+const appError = require("../utils/appError");
 const { generateOtp, hashOtp } = require("../utils/otpUtils");
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.TOKEN_SECRET, {
@@ -38,6 +39,14 @@ exports.signUp = catchAsync(async (req, res, next) => {
     mobileNumber,
     referralCode,
   } = req.body;
+
+  // Check if email exists in GroupAccount
+  const existingGroupAccount = await GroupAccount.findOne({ where: { email } });
+  if (existingGroupAccount) {
+    return res
+      .status(400)
+      .json({ message: "Email is already in use by a Group account." });
+  }
   const existingUser = await IndividualUser.findOne({ where: { email } });
   if (existingUser)
     return res.status(400).json({ message: "Email is already in use." });
@@ -79,61 +88,74 @@ exports.signUp = catchAsync(async (req, res, next) => {
 
   res
     .status(201)
-    .json({ message: "User registered successfully.", userId: newUser.id });
+    .json({
+      message: "User registered successfully.",
+      userId: newUser.id,
+      accountType: "IndividualUser",
+    });
 });
 
 //login controller
 
-exports.login = catchAsync(async (req, res, next) => {
-  const { email, username, password } = req.body;
+// exports.login = catchAsync(async (req, res, next) => {
+//   const { email, username, password } = req.body;
 
-  // Find user by email or username
-  const user = await IndividualUser.findOne({
-    where: { [Sequelize.Op.or]: [{ email }, { username }] },
-  });
+//   // Find user by email or username
+//   const user = await IndividualUser.findOne({
+//     where: { [Sequelize.Op.or]: [{ email }, { username }] },
+//   });
 
-  if (!user) {
-    return res.status(400).json({ message: "User not found." });
-  }
+//   if (!user) {
+//     return res.status(400).json({ message: "User not found." });
+//   }
 
-  // Compare the password
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-  if (!isPasswordValid) {
-    return res.status(400).json({ message: "Invalid password." });
-  }
+//   // Compare the password
+//   const isPasswordValid = await bcrypt.compare(password, user.password);
+//   if (!isPasswordValid) {
+//     return res.status(400).json({ message: "Invalid password." });
+//   }
 
-  // Generate OTP
-  const otp = generateOtp();
+//   // Generate OTP
+//   const otp = generateOtp();
 
-  // Save encrypted OTP and expiry time in the user record
-  const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+//   // Save encrypted OTP and expiry time in the user record
+//   const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
 
-  // Encrypt OTP before saving
-  const encryptedOtp = hashOtp(otp);
-  user.otp = encryptedOtp;
-  user.otpExpiry = otpExpiry;
+//   // Encrypt OTP before saving
+//   const encryptedOtp = hashOtp(otp);
+//   user.otp = encryptedOtp;
+//   user.otpExpiry = otpExpiry;
 
-  await user.save();
+//   await user.save();
 
-  // Send OTP to the user's email
-  await sendEmail({
-    email: user.email,
-    subject: "Your OTP valid for just 10mins",
-    message: `Your OTP is :  ${otp}`,
-  });
+//   // Send OTP to the user's email
+//   await sendEmail({
+//     email: user.email,
+//     subject: "Your OTP valid for just 10mins",
+//     message: `Your OTP is :  ${otp}`,
+//   });
 
-  // Respond with a message asking the user to verify the OTP
-  res.status(200).json({
-    message: "OTP sent to your email. Please verify.",
-    userId: user.id,
-  });
-});
+//   // Respond with a message asking the user to verify the OTP
+//   res.status(200).json({
+//     message: "OTP sent to your email. Please verify.",
+//     userId: user.id,
+//   });
+// });
 
 //group-user signUp controller
 
 exports.signUpGroup = catchAsync(async (req, res, next) => {
   const { groupName, username, email, password, groupType, referralCode } =
     req.body;
+  //check the individual account user if exist with that email
+  const existingIndividualUser = await IndividualUser.findOne({
+    where: { email },
+  });
+  if (existingIndividualUser)
+    return res
+      .status(400)
+      .json({ message: "Email is already in use by a individual account." });
+  //check the group user
   const existingUser = await GroupAccount.findOne({ where: { email } });
   if (existingUser)
     return res.status(400).json({ message: "Email is already in use." });
@@ -174,24 +196,40 @@ exports.signUpGroup = catchAsync(async (req, res, next) => {
 
   res
     .status(201)
-    .json({ message: "User registered successfully.", userId: newUser.id });
+    .json({
+      message: "User registered successfully.",
+      userId: newUser.id,
+      accountType: "GroupAccount",
+    });
 });
 
-//Group login controller
+exports.login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
 
-exports.loginGroup = catchAsync(async (req, res, next) => {
-  const { email, username, password } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: "Please provide an email." });
+  }
 
-  // Find user by email or username
-  const user = await IndividualUser.findOne({
-    where: { [Sequelize.Op.or]: [{ email }, { username }] },
-  });
+  // Find user in both models by email
+  const individualUser = await IndividualUser.findOne({ where: { email } });
+  const groupAccount = await GroupAccount.findOne({ where: { email } });
+
+  // Ensure only one user is found in either model
+  if (individualUser && groupAccount) {
+    return res.status(400).json({
+      message: "An account with this email exists in multiple models.",
+    });
+  }
+
+  // Get the user and account type
+  const user = individualUser || groupAccount;
+  const accountType = individualUser ? "IndividualUser" : "GroupAccount";
 
   if (!user) {
     return res.status(400).json({ message: "User not found." });
   }
 
-  // Compare the password
+  // Validate password
   const isPasswordValid = await bcrypt.compare(password, user.password);
   if (!isPasswordValid) {
     return res.status(400).json({ message: "Invalid password." });
@@ -199,30 +237,75 @@ exports.loginGroup = catchAsync(async (req, res, next) => {
 
   // Generate OTP
   const otp = generateOtp();
-
-  // Save encrypted OTP and expiry time in the user record
   const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
-
-  // Encrypt OTP before saving
   const encryptedOtp = hashOtp(otp);
+
+  // Save OTP and expiry in the user's record
   user.otp = encryptedOtp;
   user.otpExpiry = otpExpiry;
-
   await user.save();
 
   // Send OTP to the user's email
   await sendEmail({
     email: user.email,
-    subject: "Your OTP valid for just 10mins",
-    message: `Your OTP is :  ${otp}`,
+    subject: "Your OTP is valid for 10 minutes",
+    message: `Your OTP is: ${otp}`,
   });
 
-  // Respond with a message asking the user to verify the OTP
+  // Respond with a success message and user details
   res.status(200).json({
     message: "OTP sent to your email. Please verify.",
     userId: user.id,
+    accountType,
   });
 });
+
+//Group login controller
+
+// exports.loginGroup = catchAsync(async (req, res, next) => {
+//   const { email, username, password } = req.body;
+
+//   // Find user by email or username
+//   const user = await IndividualUser.findOne({
+//     where: { [Sequelize.Op.or]: [{ email }, { username }] },
+//   });
+
+//   if (!user) {
+//     return res.status(400).json({ message: "User not found." });
+//   }
+
+//   // Compare the password
+//   const isPasswordValid = await bcrypt.compare(password, user.password);
+//   if (!isPasswordValid) {
+//     return res.status(400).json({ message: "Invalid password." });
+//   }
+
+//   // Generate OTP
+//   const otp = generateOtp();
+
+//   // Save encrypted OTP and expiry time in the user record
+//   const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+
+//   // Encrypt OTP before saving
+//   const encryptedOtp = hashOtp(otp);
+//   user.otp = encryptedOtp;
+//   user.otpExpiry = otpExpiry;
+
+//   await user.save();
+
+//   // Send OTP to the user's email
+//   await sendEmail({
+//     email: user.email,
+//     subject: "Your OTP valid for just 10mins",
+//     message: `Your OTP is :  ${otp}`,
+//   });
+
+//   // Respond with a message asking the user to verify the OTP
+//   res.status(200).json({
+//     message: "OTP sent to your email. Please verify.",
+//     userId: user.id,
+//   });
+// });
 
 //get the users
 exports.getRecords = catchAsync(async (req, res, next) => {
@@ -233,12 +316,10 @@ exports.getRecords = catchAsync(async (req, res, next) => {
     accountType === "IndividualUser" ? IndividualUser : GroupAccount;
 
   if (!Model) {
-    return res
-      .status(400)
-      .json({
-        message:
-          "Invalid account type. Must be 'IndividualUser' or 'GroupAccount'.",
-      });
+    return res.status(400).json({
+      message:
+        "Invalid account type. Must be 'IndividualUser' or 'GroupAccount'.",
+    });
   }
 
   // Fetch the record based on userId (if provided) or fetch all records
@@ -254,5 +335,128 @@ exports.getRecords = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: records,
+  });
+});
+
+// Forgot Password Controller
+exports.forgotPassword = catchAsync(async (req, res, next) => {
+  const { email, accountType } = req.body;
+
+  // Determine the model based on accountType
+  const Model =
+    accountType === "IndividualUser" ? IndividualUser : GroupAccount;
+
+  if (!Model) {
+    return next(
+      new appError(
+        "Invalid account type. Must be 'IndividualUser' or 'GroupAccount'.",
+        400
+      )
+    );
+  }
+
+  // Find user by email
+  const user = await Model.findOne({ where: { email } });
+
+  if (!user) {
+    return next(new appError(`No user found with email: ${email}`, 404));
+  }
+
+  // Generate reset token
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // Set reset token and expiration time
+  user.passwordResetToken = hashedToken;
+  user.passwordResetExpires = Date.now() + 10 * 60 * 1000; // Token valid for 10 minutes
+  await user.save();
+
+  // Create reset URL
+  const resetUrl = `${req.protocol}://${req.get(
+    "host"
+  )}/api/v1/users/resetPassword/${resetToken}`;
+
+  // Email message
+  const message = `Forgot your password? Submit a PATCH request with your new password and password confirmation to: ${resetUrl}\n\nIf you didn't request a password reset, please ignore this email.`;
+
+  try {
+    // Send email
+    await sendEmail({
+      email: user.email,
+      subject: "Your password reset token (valid for 10 minutes)",
+      message,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Token sent to email.",
+    });
+  } catch (err) {
+    console.error("Error sending email: ", err);
+
+    // Clear reset token and expiration on error
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    await user.save();
+
+    return next(
+      new appError(
+        "There was an error sending the email. Please try again later.",
+        500
+      )
+    );
+  }
+});
+
+// Reset Password Controller
+exports.resetPassword = catchAsync(async (req, res, next) => {
+  const { token, accountType, password } = req.body;
+
+  // Validate input
+  if (!token || !accountType || !password) {
+    return next(new appError("All fields are required.", 400));
+  }
+
+  // Determine the model based on accountType
+  const Model =
+    accountType === "IndividualUser" ? IndividualUser : GroupAccount;
+
+  if (!Model) {
+    return next(
+      new appError(
+        "Invalid account type. Must be 'IndividualUser' or 'GroupAccount'.",
+        400
+      )
+    );
+  }
+
+  // Hash the token to match the stored value
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  // Find user with matching reset token and valid expiration
+  const user = await Model.findOne({
+    where: {
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { [Sequelize.Op.gt]: Date.now() }, // Token must be valid
+    },
+  });
+
+  if (!user) {
+    return next(new appError("Invalid or expired reset token.", 400));
+  }
+
+  // Hash password
+  user.password = await bcrypt.hash(password, 10);
+  // Clear reset token and expiration
+  user.passwordResetToken = null;
+  user.passwordResetExpires = null;
+  await user.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "password is successfully reset.",
   });
 });
