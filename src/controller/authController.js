@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { Sequelize } = require("../config/db");
 const catchAsync = require("../utils/catchAsync");
@@ -86,63 +87,12 @@ exports.signUp = catchAsync(async (req, res, next) => {
     message: `Your OTP is :  ${otp}`,
   });
 
-  res
-    .status(201)
-    .json({
-      message: "User registered successfully.",
-      userId: newUser.id,
-      accountType: "IndividualUser",
-    });
+  res.status(201).json({
+    message: "User registered successfully.",
+    userId: newUser.id,
+    accountType: "IndividualUser",
+  });
 });
-
-//login controller
-
-// exports.login = catchAsync(async (req, res, next) => {
-//   const { email, username, password } = req.body;
-
-//   // Find user by email or username
-//   const user = await IndividualUser.findOne({
-//     where: { [Sequelize.Op.or]: [{ email }, { username }] },
-//   });
-
-//   if (!user) {
-//     return res.status(400).json({ message: "User not found." });
-//   }
-
-//   // Compare the password
-//   const isPasswordValid = await bcrypt.compare(password, user.password);
-//   if (!isPasswordValid) {
-//     return res.status(400).json({ message: "Invalid password." });
-//   }
-
-//   // Generate OTP
-//   const otp = generateOtp();
-
-//   // Save encrypted OTP and expiry time in the user record
-//   const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
-
-//   // Encrypt OTP before saving
-//   const encryptedOtp = hashOtp(otp);
-//   user.otp = encryptedOtp;
-//   user.otpExpiry = otpExpiry;
-
-//   await user.save();
-
-//   // Send OTP to the user's email
-//   await sendEmail({
-//     email: user.email,
-//     subject: "Your OTP valid for just 10mins",
-//     message: `Your OTP is :  ${otp}`,
-//   });
-
-//   // Respond with a message asking the user to verify the OTP
-//   res.status(200).json({
-//     message: "OTP sent to your email. Please verify.",
-//     userId: user.id,
-//   });
-// });
-
-//group-user signUp controller
 
 exports.signUpGroup = catchAsync(async (req, res, next) => {
   const { groupName, username, email, password, groupType, referralCode } =
@@ -194,13 +144,11 @@ exports.signUpGroup = catchAsync(async (req, res, next) => {
     message: `Your OTP is :  ${otp}`,
   });
 
-  res
-    .status(201)
-    .json({
-      message: "User registered successfully.",
-      userId: newUser.id,
-      accountType: "GroupAccount",
-    });
+  res.status(201).json({
+    message: "User registered successfully.",
+    userId: newUser.id,
+    accountType: "GroupAccount",
+  });
 });
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -260,53 +208,6 @@ exports.login = catchAsync(async (req, res, next) => {
   });
 });
 
-//Group login controller
-
-// exports.loginGroup = catchAsync(async (req, res, next) => {
-//   const { email, username, password } = req.body;
-
-//   // Find user by email or username
-//   const user = await IndividualUser.findOne({
-//     where: { [Sequelize.Op.or]: [{ email }, { username }] },
-//   });
-
-//   if (!user) {
-//     return res.status(400).json({ message: "User not found." });
-//   }
-
-//   // Compare the password
-//   const isPasswordValid = await bcrypt.compare(password, user.password);
-//   if (!isPasswordValid) {
-//     return res.status(400).json({ message: "Invalid password." });
-//   }
-
-//   // Generate OTP
-//   const otp = generateOtp();
-
-//   // Save encrypted OTP and expiry time in the user record
-//   const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
-
-//   // Encrypt OTP before saving
-//   const encryptedOtp = hashOtp(otp);
-//   user.otp = encryptedOtp;
-//   user.otpExpiry = otpExpiry;
-
-//   await user.save();
-
-//   // Send OTP to the user's email
-//   await sendEmail({
-//     email: user.email,
-//     subject: "Your OTP valid for just 10mins",
-//     message: `Your OTP is :  ${otp}`,
-//   });
-
-//   // Respond with a message asking the user to verify the OTP
-//   res.status(200).json({
-//     message: "OTP sent to your email. Please verify.",
-//     userId: user.id,
-//   });
-// });
-
 //get the users
 exports.getRecords = catchAsync(async (req, res, next) => {
   const { accountType, userId } = req.params;
@@ -340,23 +241,14 @@ exports.getRecords = catchAsync(async (req, res, next) => {
 
 // Forgot Password Controller
 exports.forgotPassword = catchAsync(async (req, res, next) => {
-  const { email, accountType } = req.body;
+  const { email } = req.body;
 
-  // Determine the model based on accountType
-  const Model =
-    accountType === "IndividualUser" ? IndividualUser : GroupAccount;
-
-  if (!Model) {
-    return next(
-      new appError(
-        "Invalid account type. Must be 'IndividualUser' or 'GroupAccount'.",
-        400
-      )
-    );
-  }
-
-  // Find user by email
-  const user = await Model.findOne({ where: { email } });
+  // Find user in both models by email
+  const individualUser = await IndividualUser.findOne({ where: { email } });
+  const groupAccount = await GroupAccount.findOne({ where: { email } });
+  // Get the user and account type
+  const user = individualUser || groupAccount;
+  const accountType = individualUser ? "IndividualUser" : "GroupAccount";
 
   if (!user) {
     return next(new appError(`No user found with email: ${email}`, 404));
@@ -377,10 +269,10 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   // Create reset URL
   const resetUrl = `${req.protocol}://${req.get(
     "host"
-  )}/api/v1/users/resetPassword/${resetToken}`;
+  )}/user/reset-Password/${resetToken}?accountType=${accountType}`;
 
   // Email message
-  const message = `Forgot your password? Submit a PATCH request with your new password and password confirmation to: ${resetUrl}\n\nIf you didn't request a password reset, please ignore this email.`;
+  const message = `Password Reset Link:<br> <a href=${resetUrl}>${resetUrl}</a>`;
 
   try {
     // Send email
@@ -393,6 +285,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     res.status(200).json({
       status: "success",
       message: "Token sent to email.",
+      accountType,
     });
   } catch (err) {
     console.error("Error sending email: ", err);
@@ -413,8 +306,10 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 
 // Reset Password Controller
 exports.resetPassword = catchAsync(async (req, res, next) => {
-  const { token, accountType, password } = req.body;
-
+  const { password } = req.body;
+  const { token } = req.params;
+  const { accountType } = req.query;
+  console.log("ReSet", accountType, token, password);
   // Validate input
   if (!token || !accountType || !password) {
     return next(new appError("All fields are required.", 400));

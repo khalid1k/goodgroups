@@ -8,6 +8,7 @@ const otpRoute = require("./src/routes/otpVerifyRoute");
 const xss = require("xss-clean");
 const helmet = require("helmet");
 const app = express();
+const path = require("path");
 const PORT = 3000;
 app.use(helmet());
 // Middleware
@@ -22,6 +23,10 @@ const limiter = rateLimit({
   message: "to many request from this IP please try again in an hour",
 });
 app.use(limiter);
+app.use(express.static("src/public"));
+app.set("view engine", "pug");
+app.set("views", path.join(__dirname, "src", "views")); // Folder for Pug files
+app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/user", userRoutes);
 app.use("/otp", otpRoute);
