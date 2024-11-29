@@ -38,23 +38,9 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signUp = catchAsync(async (req, res, next) => {
-  const {
-    fullName,
-    username,
-    email,
-    password,
-    birthday,
-    mobileNumber,
-    referralCode,
-  } = req.body;
-  if (
-    !fullName ||
-    !username ||
-    !email ||
-    !password ||
-    !birthday ||
-    !mobileNumber
-  ) {
+  const { fullName, username, email, birthday, mobileNumber, referralCode } =
+    req.body;
+  if (!fullName || !username || !email || !birthday || !mobileNumber) {
     res.status(400).json({ message: "please fill all the mandatory fields" });
   }
   // Check if email exists in GroupAccount
@@ -75,7 +61,7 @@ exports.signUp = catchAsync(async (req, res, next) => {
     return res.status(400).json({ message: "Username is already taken." });
 
   // Hash password
-  const hashedPassword = await bcrypt.hash(password, 10);
+  // const hashedPassword = await bcrypt.hash(password, 10);
 
   const otp = generateOtp();
   const encryptedOtp = hashOtp(otp);
@@ -84,11 +70,22 @@ exports.signUp = catchAsync(async (req, res, next) => {
   const otpExpiry = Date.now() + 1 * 60 * 1000; // OTP valid for 1 minute
 
   // Create user (pending OTP verification)
+  // const newUser = await IndividualUser.create({
+  //   fullName,
+  //   username,
+  //   email,
+  //   password: hashedPassword,
+  //   birthday,
+  //   mobileNumber,
+  //   referralCode,
+  //   otp: encryptedOtp,
+  //   otpExpiry,
+  //   isVerified: false,
+  // });
   const newUser = await IndividualUser.create({
     fullName,
     username,
     email,
-    password: hashedPassword,
     birthday,
     mobileNumber,
     referralCode,
@@ -111,8 +108,9 @@ exports.signUp = catchAsync(async (req, res, next) => {
 });
 
 exports.signUpGroup = catchAsync(async (req, res, next) => {
-  const { groupName, username, email, password, groupType, referralCode } =
-    req.body;
+  // const { groupName, username, email, password, groupType, referralCode } =
+  //   req.body;
+  const { groupName, username, email, groupType, referralCode } = req.body;
   //check the individual account user if exist with that email
   const existingIndividualUser = await IndividualUser.findOne({
     where: { email },
@@ -133,7 +131,7 @@ exports.signUpGroup = catchAsync(async (req, res, next) => {
     return res.status(400).json({ message: "Username is already taken." });
 
   // Hash password
-  const hashedPassword = await bcrypt.hash(password, 10);
+  // const hashedPassword = await bcrypt.hash(password, 10);
 
   const otp = generateOtp();
   const encryptedOtp = hashOtp(otp);
@@ -142,11 +140,21 @@ exports.signUpGroup = catchAsync(async (req, res, next) => {
   const otpExpiry = Date.now() + 1 * 60 * 1000; // OTP valid for 1 minute
 
   // Create user (pending OTP verification)
+  // const newUser = await GroupAccount.create({
+  //   groupName,
+  //   username,
+  //   email,
+  //   password: hashedPassword,
+  //   groupType,
+  //   referralCode,
+  //   otp: encryptedOtp,
+  //   otpExpiry,
+  //   isVerified: false,
+  // });
   const newUser = await GroupAccount.create({
     groupName,
     username,
     email,
-    password: hashedPassword,
     groupType,
     referralCode,
     otp: encryptedOtp,
@@ -499,7 +507,7 @@ exports.deleteUser = async (req, res) => {
   const { email } = req.params; // Assuming the email is passed as a URL parameter
 
   try {
-    const user = await GroupAccount.destroy({
+    const user = await IndividualUser.destroy({
       where: {
         email: email,
       },

@@ -27,10 +27,10 @@ const GroupAccount = sequelize.define(
         isEmail: true,
       },
     },
-    password: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
+    // password: {
+    //   type: DataTypes.STRING,
+    //   allowNull: false,
+    // },
     groupType: {
       type: DataTypes.ENUM("Company", "Faith Organization", "School", "Cause"),
       allowNull: false,
@@ -51,14 +51,14 @@ const GroupAccount = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
-    passwordResetToken: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    passwordResetExpires: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
+    // passwordResetToken: {
+    //   type: DataTypes.STRING,
+    //   allowNull: true,
+    // },
+    // passwordResetExpires: {
+    //   type: DataTypes.DATE,
+    //   allowNull: true,
+    // },
   },
   {
     timestamps: true,

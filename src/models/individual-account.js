@@ -27,10 +27,10 @@ const IndividualUser = sequelize.define(
         isEmail: true,
       },
     },
-    password: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
+    // password: {
+    //   type: DataTypes.STRING,
+    //   allowNull: false,
+    // },
     birthday: {
       type: DataTypes.DATEONLY,
       allowNull: false,
@@ -55,14 +55,14 @@ const IndividualUser = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
-    passwordResetToken: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    passwordResetExpires: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
+    // passwordResetToken: {
+    //   type: DataTypes.STRING,
+    //   allowNull: true,
+    // },
+    // passwordResetExpires: {
+    //   type: DataTypes.DATE,
+    //   allowNull: true,
+    // },
   },
   {
     timestamps: true,
