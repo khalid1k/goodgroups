@@ -194,10 +194,10 @@ exports.login = catchAsync(async (req, res, next) => {
   }
 
   // Validate password
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-  if (!isPasswordValid) {
-    return res.status(400).json({ message: "Invalid password." });
-  }
+  // const isPasswordValid = await bcrypt.compare(password, user.password);
+  // if (!isPasswordValid) {
+  //   return res.status(400).json({ message: "Invalid password." });
+  // }
 
   // Generate OTP
   const otp = generateOtp();
@@ -430,31 +430,25 @@ exports.socialLogin = async (req, res) => {
       //   idToken: socialToken,
       //   audience: process.env.GOOGLE_CLIENT_ID,
       // });
-      // const ticket = await googleClient.verifyIdToken({
-      //   idToken: socialToken,
-      //   audience:
-      //     "926088317542-spk73hb86vj1n72506of4ps8rjd2bf5r.apps.googleusercontent.com",
-      // });
+
       const ticket = await googleClient.verifyIdToken({
         idToken: socialToken,
       });
       const payload = ticket.getPayload();
       email = payload.email;
-      console.log("social token email is", email);
-
       if (!email) {
         return res
           .status(400)
           .json({ message: "Email not found in Google token" });
       }
-      // **Facebook Verification**
+      // Facebook Verification
     } else if (provider === "facebook") {
       const response = await axios.get(
         `https://graph.facebook.com/me?fields=email&access_token=${socialToken}`
       );
       email = response.data.email;
 
-      // **Apple Verification**
+      // Apple Verification
     } else if (provider === "apple") {
       const decodedToken = jwt.decode(socialToken, { complete: true });
       const { data: appleKeys } = await axios.get(
@@ -470,7 +464,7 @@ exports.socialLogin = async (req, res) => {
       return res.status(400).json({ message: "Unsupported provider" });
     }
 
-    // **Check if User Exists in DB**
+    // Check if User Exists in DB
     let user = await IndividualUser.findOne({ where: { email } });
     if (!user) user = await GroupAccount.findOne({ where: { email } });
 
@@ -480,7 +474,9 @@ exports.socialLogin = async (req, res) => {
         await user.save();
       }
       const token = signToken(user.id);
-      return res.status(200).json({ message: "Login successful", token });
+      return res
+        .status(200)
+        .json({ message: "Login successful", serRegister: true, token });
     }
 
     return res.status(202).json({
