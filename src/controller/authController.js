@@ -61,7 +61,7 @@ exports.signUp = catchAsync(async (req, res, next) => {
     return res.status(400).json({ message: "Username is already taken." });
 
   // Hash password
-  // const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   const otp = generateOtp();
   const encryptedOtp = hashOtp(otp);
@@ -70,22 +70,11 @@ exports.signUp = catchAsync(async (req, res, next) => {
   const otpExpiry = Date.now() + 1 * 60 * 1000; // OTP valid for 1 minute
 
   // Create user (pending OTP verification)
-  // const newUser = await IndividualUser.create({
-  //   fullName,
-  //   username,
-  //   email,
-  //   password: hashedPassword,
-  //   birthday,
-  //   mobileNumber,
-  //   referralCode,
-  //   otp: encryptedOtp,
-  //   otpExpiry,
-  //   isVerified: false,
-  // });
   const newUser = await IndividualUser.create({
     fullName,
     username,
     email,
+    password: hashedPassword,
     birthday,
     mobileNumber,
     referralCode,
@@ -93,6 +82,17 @@ exports.signUp = catchAsync(async (req, res, next) => {
     otpExpiry,
     isVerified: false,
   });
+  // const newUser = await IndividualUser.create({
+  //   fullName,
+  //   username,
+  //   email,
+  //   birthday,
+  //   mobileNumber,
+  //   referralCode,
+  //   otp: encryptedOtp,
+  //   otpExpiry,
+  //   isVerified: false,
+  // });
 
   await sendEmail({
     email: newUser.email,
@@ -131,7 +131,7 @@ exports.signUpGroup = catchAsync(async (req, res, next) => {
     return res.status(400).json({ message: "Username is already taken." });
 
   // Hash password
-  // const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   const otp = generateOtp();
   const encryptedOtp = hashOtp(otp);
@@ -140,27 +140,27 @@ exports.signUpGroup = catchAsync(async (req, res, next) => {
   const otpExpiry = Date.now() + 1 * 60 * 1000; // OTP valid for 1 minute
 
   // Create user (pending OTP verification)
-  // const newUser = await GroupAccount.create({
-  //   groupName,
-  //   username,
-  //   email,
-  //   password: hashedPassword,
-  //   groupType,
-  //   referralCode,
-  //   otp: encryptedOtp,
-  //   otpExpiry,
-  //   isVerified: false,
-  // });
   const newUser = await GroupAccount.create({
     groupName,
     username,
     email,
+    password: hashedPassword,
     groupType,
     referralCode,
     otp: encryptedOtp,
     otpExpiry,
     isVerified: false,
   });
+  // const newUser = await GroupAccount.create({
+  //   groupName,
+  //   username,
+  //   email,
+  //   groupType,
+  //   referralCode,
+  //   otp: encryptedOtp,
+  //   otpExpiry,
+  //   isVerified: false,
+  // });
 
   await sendEmail({
     email: newUser.email,
@@ -202,10 +202,10 @@ exports.login = catchAsync(async (req, res, next) => {
   }
 
   // Validate password
-  // const isPasswordValid = await bcrypt.compare(password, user.password);
-  // if (!isPasswordValid) {
-  //   return res.status(400).json({ message: "Invalid password." });
-  // }
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    return res.status(400).json({ message: "Invalid password." });
+  }
 
   // Generate OTP
   const otp = generateOtp();
