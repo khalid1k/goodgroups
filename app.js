@@ -5,10 +5,14 @@ const rateLimit = require("express-rate-limit");
 const { connectDB, sequelize } = require("./src/config/db");
 const userRoutes = require("./src/routes/userRoutes");
 const otpRoute = require("./src/routes/otpVerifyRoute");
+const socialAuthRoutes = require("./src/routes/socialAuthRoutes");
 const xss = require("xss-clean");
 const helmet = require("helmet");
 const app = express();
 const path = require("path");
+const passport = require("passport");
+// require("./src/config/passport");
+// const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const PORT = 3000;
 app.use(helmet());
 // Middleware
@@ -27,9 +31,11 @@ app.use(express.static("src/public"));
 app.set("view engine", "pug");
 app.set("views", path.join(__dirname, "src", "views")); // Folder for Pug files
 app.use(express.urlencoded({ extended: true }));
-// Routes
+
+app.use(socialAuthRoutes);
 app.use("/user", userRoutes);
 app.use("/otp", otpRoute);
+
 // Start Server
 app.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);

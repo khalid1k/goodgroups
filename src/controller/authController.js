@@ -1,13 +1,20 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
+const axios = require("axios");
+const passport = require("passport");
 const { Sequelize } = require("../config/db");
 const catchAsync = require("../utils/catchAsync");
 const IndividualUser = require("../models/individual-account");
 const GroupAccount = require("../models/group-account");
 const sendEmail = require("../utils/email");
 const appError = require("../utils/appError");
+// const socialTokenHelper = require("../helpers/googleSocialToken");
 const { generateOtp, hashOtp } = require("../utils/otpUtils");
+const { register } = require("module");
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.TOKEN_SECRET, {
     expiresIn: "90d",
@@ -40,7 +47,16 @@ exports.signUp = catchAsync(async (req, res, next) => {
     mobileNumber,
     referralCode,
   } = req.body;
-
+  if (
+    !fullName ||
+    !username ||
+    !email ||
+    !password ||
+    !birthday ||
+    !mobileNumber
+  ) {
+    res.status(400).json({ message: "please fill all the mandatory fields" });
+  }
   // Check if email exists in GroupAccount
   const existingGroupAccount = await GroupAccount.findOne({ where: { email } });
   if (existingGroupAccount) {
@@ -65,7 +81,7 @@ exports.signUp = catchAsync(async (req, res, next) => {
   const encryptedOtp = hashOtp(otp);
 
   // Save encrypted OTP and expiry time in the user record
-  const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+  const otpExpiry = Date.now() + 1 * 60 * 1000; // OTP valid for 1 minute
 
   // Create user (pending OTP verification)
   const newUser = await IndividualUser.create({
@@ -83,7 +99,7 @@ exports.signUp = catchAsync(async (req, res, next) => {
 
   await sendEmail({
     email: newUser.email,
-    subject: "Your OTP valid for just 10mins",
+    subject: "Your OTP valid for just 1 minute",
     message: `Your OTP is :  ${otp}`,
   });
 
@@ -123,7 +139,7 @@ exports.signUpGroup = catchAsync(async (req, res, next) => {
   const encryptedOtp = hashOtp(otp);
 
   // Save encrypted OTP and expiry time in the user record
-  const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+  const otpExpiry = Date.now() + 1 * 60 * 1000; // OTP valid for 1 minute
 
   // Create user (pending OTP verification)
   const newUser = await GroupAccount.create({
@@ -140,7 +156,7 @@ exports.signUpGroup = catchAsync(async (req, res, next) => {
 
   await sendEmail({
     email: newUser.email,
-    subject: "Your OTP valid for just 10mins",
+    subject: "Your OTP valid for just 1 minute",
     message: `Your OTP is :  ${otp}`,
   });
 
@@ -185,7 +201,7 @@ exports.login = catchAsync(async (req, res, next) => {
 
   // Generate OTP
   const otp = generateOtp();
-  const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+  const otpExpiry = Date.now() + 1 * 60 * 1000; // OTP valid for 1 minute
   const encryptedOtp = hashOtp(otp);
 
   // Save OTP and expiry in the user's record
@@ -196,7 +212,7 @@ exports.login = catchAsync(async (req, res, next) => {
   // Send OTP to the user's email
   await sendEmail({
     email: user.email,
-    subject: "Your OTP is valid for 10 minutes",
+    subject: "Your OTP is valid for 1 minute",
     message: `Your OTP is: ${otp}`,
   });
 
@@ -210,7 +226,7 @@ exports.login = catchAsync(async (req, res, next) => {
 
 //get the users
 exports.getRecords = catchAsync(async (req, res, next) => {
-  const { accountType, userId } = req.params;
+  const { accountType, userId } = req.query;
 
   // Determine the model based on accountType
   const Model =
@@ -355,3 +371,126 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
     message: "password is successfully reset.",
   });
 });
+
+//social login controller
+
+// exports.socialLogin = async (req, res) => {
+//   const { socialToken, provider } = req.body;
+
+//   passport.authenticate(
+//     provider,
+//     { session: false },
+//     async (err, user, info) => {
+//       if (err || !user) {
+//         return res.status(400).json({ message: "Authentication failed" });
+//       }
+
+//       try {
+//         // Extract the email from the social login profile
+//         const { email } = user; // Assuming `user` contains the social profile with the email
+
+//         // Check if the user exists in either IndividualUser or GroupAccount model
+//         let foundUser = await IndividualUser.findOne({ where: { email } });
+
+//         if (!foundUser) {
+//           foundUser = await GroupAccount.findOne({ where: { email } });
+//         }
+
+//         if (foundUser) {
+//           // If user exists, generate a JWT token
+//           const token = signToken(foundUser.id);
+//           return res.status(200).json({
+//             message: "Login successful",
+//             token,
+//           });
+//         }
+
+//         // If the user doesn't exist, return only the email
+//         return res.json({
+//           message: "User not found",
+//           email, // Send back the email from social login provider
+//         });
+//       } catch (error) {
+//         console.error(error);
+//         return res.status(500).json({ message: "Internal server error" });
+//       }
+//     }
+//   )(req, res); // Manually invoke the middleware
+// };
+
+exports.socialLogin = async (req, res) => {
+  const { socialToken, provider } = req.body;
+  try {
+    let email;
+
+    // **Google Verification**
+    if (provider === "google") {
+      // **Google Token Verification**
+      // const ticket = await googleClient.verifyIdToken({
+      //   idToken: socialToken,
+      //   audience: process.env.GOOGLE_CLIENT_ID,
+      // });
+      // const ticket = await googleClient.verifyIdToken({
+      //   idToken: socialToken,
+      //   audience:
+      //     "926088317542-spk73hb86vj1n72506of4ps8rjd2bf5r.apps.googleusercontent.com",
+      // });
+      const ticket = await googleClient.verifyIdToken({
+        idToken: socialToken,
+      });
+      const payload = ticket.getPayload();
+      email = payload.email;
+      console.log("social token email is", email);
+
+      if (!email) {
+        return res
+          .status(400)
+          .json({ message: "Email not found in Google token" });
+      }
+      // **Facebook Verification**
+    } else if (provider === "facebook") {
+      const response = await axios.get(
+        `https://graph.facebook.com/me?fields=email&access_token=${socialToken}`
+      );
+      email = response.data.email;
+
+      // **Apple Verification**
+    } else if (provider === "apple") {
+      const decodedToken = jwt.decode(socialToken, { complete: true });
+      const { data: appleKeys } = await axios.get(
+        "https://appleid.apple.com/auth/keys"
+      );
+      const key = appleKeys.keys.find((k) => k.kid === decodedToken.header.kid);
+
+      if (!key) return new Error("Invalid Apple token");
+
+      jwt.verify(socialToken, key, { algorithms: ["RS256"] });
+      email = decodedToken.payload.email;
+    } else {
+      return res.status(400).json({ message: "Unsupported provider" });
+    }
+
+    // **Check if User Exists in DB**
+    let user = await IndividualUser.findOne({ where: { email } });
+    if (!user) user = await GroupAccount.findOne({ where: { email } });
+
+    if (user) {
+      if (!user.isVerified) {
+        user.isVerified = true;
+        await user.save();
+      }
+      const token = signToken(user.id);
+      return res.status(200).json({ message: "Login successful", token });
+    }
+
+    return res.status(202).json({
+      userRegister: false,
+      email,
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};

@@ -82,7 +82,7 @@ exports.resendOtp = catchAsync(async (req, res, next) => {
   // Generate a new OTP
   const otp = generateOtp();
 
-  const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+  const otpExpiry = Date.now() + 1 * 60 * 1000; // OTP valid for 1 minute
 
   // Encrypt OTP before saving
   const encryptedOtp = hashOtp(otp);
@@ -93,7 +93,7 @@ exports.resendOtp = catchAsync(async (req, res, next) => {
   // Send the new OTP via email
   await sendEmail({
     email: user.email,
-    subject: "Your OTP valid for just 10mins",
+    subject: "Your OTP valid for just 1 minute",
     message: `Your OTP is :  ${otp}`,
   });
 
