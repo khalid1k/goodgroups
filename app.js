@@ -1,5 +1,7 @@
 require("dotenv").config();
 const express = require("express");
+const appError = require("./src/utils/appError");
+const globalErrorHandler = require("./src/controller/errorController");
 const bodyParser = require("body-parser");
 const rateLimit = require("express-rate-limit");
 const { connectDB, sequelize } = require("./src/config/db");
@@ -35,7 +37,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(socialAuthRoutes);
 app.use("/user", userRoutes);
 app.use("/otp", otpRoute);
-
+//handle the wrong routes
+app.all("*", (req, res, next) => {
+  next(new appError(`Can't Find ${req.originalUrl} on this server`, 404));
+});
+//handle the error
+app.use(globalErrorHandler);
 // Start Server
 app.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);

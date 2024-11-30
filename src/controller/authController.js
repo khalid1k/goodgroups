@@ -46,23 +46,18 @@ exports.signUp = catchAsync(async (req, res, next) => {
   // Check if email exists in GroupAccount
   const existingGroupAccount = await GroupAccount.findOne({ where: { email } });
   if (existingGroupAccount) {
-    return res
-      .status(400)
-      .json({ message: "Email is already in use by a Group account." });
+    return next(
+      new appError("Email is already in use by a Group account.", 400)
+    );
   }
   const existingUser = await IndividualUser.findOne({ where: { email } });
-  if (existingUser)
-    return res.status(400).json({ message: "Email is already in use." });
+  if (existingUser) return next(new appError("Email is already in use.", 400));
 
   const existingUsername = await IndividualUser.findOne({
     where: { username },
   });
   if (existingUsername)
-    return res.status(400).json({ message: "Username is already taken." });
-
-  // Hash password
-  const hashedPassword = await bcrypt.hash(password, 10);
-
+    return next(new appError("Username is already taken.", 400));
   const otp = generateOtp();
   const encryptedOtp = hashOtp(otp);
 
@@ -70,11 +65,11 @@ exports.signUp = catchAsync(async (req, res, next) => {
   const otpExpiry = Date.now() + 1 * 60 * 1000; // OTP valid for 1 minute
 
   // Create user (pending OTP verification)
+
   const newUser = await IndividualUser.create({
     fullName,
     username,
     email,
-    password: hashedPassword,
     birthday,
     mobileNumber,
     referralCode,
@@ -82,19 +77,8 @@ exports.signUp = catchAsync(async (req, res, next) => {
     otpExpiry,
     isVerified: false,
   });
-  // const newUser = await IndividualUser.create({
-  //   fullName,
-  //   username,
-  //   email,
-  //   birthday,
-  //   mobileNumber,
-  //   referralCode,
-  //   otp: encryptedOtp,
-  //   otpExpiry,
-  //   isVerified: false,
-  // });
 
-  await sendEmail({
+  sendEmail({
     email: newUser.email,
     subject: "Your OTP valid for just 1 minute",
     message: `Your OTP is :  ${otp}`,
@@ -108,61 +92,44 @@ exports.signUp = catchAsync(async (req, res, next) => {
 });
 
 exports.signUpGroup = catchAsync(async (req, res, next) => {
-  // const { groupName, username, email, password, groupType, referralCode } =
-  //   req.body;
   const { groupName, username, email, groupType, referralCode } = req.body;
   //check the individual account user if exist with that email
   const existingIndividualUser = await IndividualUser.findOne({
     where: { email },
   });
   if (existingIndividualUser)
-    return res
-      .status(400)
-      .json({ message: "Email is already in use by a individual account." });
+    return next(
+      new appError("Email is already in use by a individual account.", 400)
+    );
+
   //check the group user
   const existingUser = await GroupAccount.findOne({ where: { email } });
-  if (existingUser)
-    return res.status(400).json({ message: "Email is already in use." });
+  if (existingUser) return next(new appError("Email is already in use.", 400));
 
   const existingUsername = await GroupAccount.findOne({
     where: { username },
   });
   if (existingUsername)
     return res.status(400).json({ message: "Username is already taken." });
-
-  // Hash password
-  const hashedPassword = await bcrypt.hash(password, 10);
-
   const otp = generateOtp();
   const encryptedOtp = hashOtp(otp);
-
   // Save encrypted OTP and expiry time in the user record
   const otpExpiry = Date.now() + 1 * 60 * 1000; // OTP valid for 1 minute
 
   // Create user (pending OTP verification)
+
   const newUser = await GroupAccount.create({
     groupName,
     username,
     email,
-    password: hashedPassword,
     groupType,
     referralCode,
     otp: encryptedOtp,
     otpExpiry,
     isVerified: false,
   });
-  // const newUser = await GroupAccount.create({
-  //   groupName,
-  //   username,
-  //   email,
-  //   groupType,
-  //   referralCode,
-  //   otp: encryptedOtp,
-  //   otpExpiry,
-  //   isVerified: false,
-  // });
 
-  await sendEmail({
+  sendEmail({
     email: newUser.email,
     subject: "Your OTP valid for just 1 minute",
     message: `Your OTP is :  ${otp}`,
@@ -176,7 +143,7 @@ exports.signUpGroup = catchAsync(async (req, res, next) => {
 });
 
 exports.login = catchAsync(async (req, res, next) => {
-  const { email, password } = req.body;
+  const { email } = req.body;
 
   if (!email) {
     return res.status(400).json({ message: "Please provide an email." });
@@ -188,9 +155,9 @@ exports.login = catchAsync(async (req, res, next) => {
 
   // Ensure only one user is found in either model
   if (individualUser && groupAccount) {
-    return res.status(400).json({
-      message: "An account with this email exists in multiple models.",
-    });
+    return next(
+      new appError("An account with this email exists in multiple models.", 400)
+    );
   }
 
   // Get the user and account type
@@ -198,13 +165,7 @@ exports.login = catchAsync(async (req, res, next) => {
   const accountType = individualUser ? "IndividualUser" : "GroupAccount";
 
   if (!user) {
-    return res.status(400).json({ message: "User not found." });
-  }
-
-  // Validate password
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-  if (!isPasswordValid) {
-    return res.status(400).json({ message: "Invalid password." });
+    return next(new appError("User not found.", 400));
   }
 
   // Generate OTP
@@ -218,7 +179,7 @@ exports.login = catchAsync(async (req, res, next) => {
   await user.save();
 
   // Send OTP to the user's email
-  await sendEmail({
+  sendEmail({
     email: user.email,
     subject: "Your OTP is valid for 1 minute",
     message: `Your OTP is: ${otp}`,
@@ -241,10 +202,12 @@ exports.getRecords = catchAsync(async (req, res, next) => {
     accountType === "IndividualUser" ? IndividualUser : GroupAccount;
 
   if (!Model) {
-    return res.status(400).json({
-      message:
-        "Invalid account type. Must be 'IndividualUser' or 'GroupAccount'.",
-    });
+    return next(
+      new appError(
+        "Invalid account type. Must be 'IndividualUser' or 'GroupAccount",
+        400
+      )
+    );
   }
 
   // Fetch the record based on userId (if provided) or fetch all records
@@ -253,7 +216,7 @@ exports.getRecords = catchAsync(async (req, res, next) => {
 
   // If no records found, return an appropriate message
   if (!records.length) {
-    return res.status(404).json({ message: "No records found." });
+    return next(new appError("No records found.", 404));
   }
 
   // Respond with the fetched records
@@ -300,7 +263,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 
   try {
     // Send email
-    await sendEmail({
+    sendEmail({
       email: user.email,
       subject: "Your password reset token (valid for 10 minutes)",
       message,
@@ -333,7 +296,6 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   const { password } = req.body;
   const { token } = req.params;
   const { accountType } = req.query;
-  console.log("ReSet", accountType, token, password);
   // Validate input
   if (!token || !accountType || !password) {
     return next(new appError("All fields are required.", 400));
@@ -380,127 +342,69 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   });
 });
 
-//social login controller
-
-// exports.socialLogin = async (req, res) => {
-//   const { socialToken, provider } = req.body;
-
-//   passport.authenticate(
-//     provider,
-//     { session: false },
-//     async (err, user, info) => {
-//       if (err || !user) {
-//         return res.status(400).json({ message: "Authentication failed" });
-//       }
-
-//       try {
-//         // Extract the email from the social login profile
-//         const { email } = user; // Assuming `user` contains the social profile with the email
-
-//         // Check if the user exists in either IndividualUser or GroupAccount model
-//         let foundUser = await IndividualUser.findOne({ where: { email } });
-
-//         if (!foundUser) {
-//           foundUser = await GroupAccount.findOne({ where: { email } });
-//         }
-
-//         if (foundUser) {
-//           // If user exists, generate a JWT token
-//           const token = signToken(foundUser.id);
-//           return res.status(200).json({
-//             message: "Login successful",
-//             token,
-//           });
-//         }
-
-//         // If the user doesn't exist, return only the email
-//         return res.json({
-//           message: "User not found",
-//           email, // Send back the email from social login provider
-//         });
-//       } catch (error) {
-//         console.error(error);
-//         return res.status(500).json({ message: "Internal server error" });
-//       }
-//     }
-//   )(req, res); // Manually invoke the middleware
-// };
-
-exports.socialLogin = async (req, res) => {
+exports.socialLogin = catchAsync(async (req, res, next) => {
   const { socialToken, provider } = req.body;
-  try {
-    let email;
+  let email;
 
-    // **Google Verification**
-    if (provider === "google") {
-      // **Google Token Verification**
-      // const ticket = await googleClient.verifyIdToken({
-      //   idToken: socialToken,
-      //   audience: process.env.GOOGLE_CLIENT_ID,
-      // });
-
-      const ticket = await googleClient.verifyIdToken({
-        idToken: socialToken,
-      });
-      const payload = ticket.getPayload();
-      email = payload.email;
-      if (!email) {
-        return res
-          .status(400)
-          .json({ message: "Email not found in Google token" });
-      }
-      // Facebook Verification
-    } else if (provider === "facebook") {
-      const response = await axios.get(
-        `https://graph.facebook.com/me?fields=email&access_token=${socialToken}`
-      );
-      email = response.data.email;
-
-      // Apple Verification
-    } else if (provider === "apple") {
-      const decodedToken = jwt.decode(socialToken, { complete: true });
-      const { data: appleKeys } = await axios.get(
-        "https://appleid.apple.com/auth/keys"
-      );
-      const key = appleKeys.keys.find((k) => k.kid === decodedToken.header.kid);
-
-      if (!key) return new Error("Invalid Apple token");
-
-      jwt.verify(socialToken, key, { algorithms: ["RS256"] });
-      email = decodedToken.payload.email;
-    } else {
-      return res.status(400).json({ message: "Unsupported provider" });
+  // Google Verification
+  if (provider === "google") {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: socialToken,
+    });
+    const payload = ticket.getPayload();
+    email = payload.email;
+    if (!email) {
+      return next(new appError("Invalid Token", 400));
+    }
+    // Facebook Verification
+  } else if (provider === "facebook") {
+    const response = await axios.get(
+      `https://graph.facebook.com/me?fields=email&access_token=${socialToken}`
+    );
+    email = response.data.email;
+    if (!email) {
+      return next(new appError("Invalid Token", 400));
     }
 
-    // Check if User Exists in DB
-    let user = await IndividualUser.findOne({ where: { email } });
-    if (!user) user = await GroupAccount.findOne({ where: { email } });
+    // Apple Verification
+  } else if (provider === "apple") {
+    const decodedToken = jwt.decode(socialToken, { complete: true });
+    const { data: appleKeys } = await axios.get(
+      "https://appleid.apple.com/auth/keys"
+    );
+    const key = appleKeys.keys.find((k) => k.kid === decodedToken.header.kid);
 
-    if (user) {
-      if (!user.isVerified) {
-        user.isVerified = true;
-        await user.save();
-      }
-      const token = signToken(user.id);
-      return res.status(200).json({
-        message: "Login successful",
-        userRegister: true,
-        token,
-        email,
-      });
+    if (!key) return next(new appError("Invalid Apple token", 400));
+
+    jwt.verify(socialToken, key, { algorithms: ["RS256"] });
+    email = decodedToken.payload.email;
+  } else {
+    return next(new appError("Unsupported provider", 400));
+  }
+
+  // Check if User Exists in DB
+  let user = await IndividualUser.findOne({ where: { email } });
+  if (!user) user = await GroupAccount.findOne({ where: { email } });
+
+  if (user) {
+    if (!user.isVerified) {
+      user.isVerified = true;
+      await user.save();
     }
-
-    return res.status(202).json({
-      userRegister: false,
+    const token = signToken(user.id);
+    return res.status(200).json({
+      message: "Login successful",
+      userRegister: true,
+      token,
       email,
     });
-  } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
   }
-};
+
+  return res.status(202).json({
+    userRegister: false,
+    email,
+  });
+});
 
 //delete user
 exports.deleteUser = async (req, res) => {

@@ -1,6 +1,7 @@
 const { hashOtp, isOtpExpired, generateOtp } = require("../utils/otpUtils");
 const catchAsync = require("../utils/catchAsync");
 const sendEmail = require("../utils/email");
+const appError = require("../utils/appError");
 const IndividualUser = require("../models/individual-account");
 const GroupAccount = require("../models/group-account");
 const jwt = require("jsonwebtoken");
@@ -34,16 +35,16 @@ exports.verifyOtp = catchAsync(async (req, res, next) => {
     accountType === "IndividualUser" ? IndividualUser : GroupAccount;
   const user = await Model.findByPk(userId);
 
-  if (!user) return res.status(404).json({ message: "User not found." });
+  if (!user) return next(new appError("User not found.", 404));
 
   if (isOtpExpired(user.otpExpiry)) {
-    return res
-      .status(400)
-      .json({ message: "OTP has expired. Please request a new one." });
+    return next(
+      new appError("OTP has expired. Please request a new one.", 400)
+    );
   }
   const hashedInputOtp = hashOtp(otp);
   if (hashedInputOtp !== user.otp) {
-    return res.status(400).json({ message: "Invalid OTP." });
+    return next(new appError("Invalid OTP.", 400));
   }
 
   // Mark the user as verified
@@ -51,8 +52,6 @@ exports.verifyOtp = catchAsync(async (req, res, next) => {
   user.otp = null; // Clear OTP
   user.otpExpiry = null; // Clear OTP expiry
   await user.save();
-
-  // res.status(200).json({ message: "Email verified successfully." });
   createSendToken(user, 200, res);
 });
 
@@ -69,14 +68,17 @@ exports.resendOtp = catchAsync(async (req, res, next) => {
   const user = await Model.findByPk(userId);
 
   if (!user) {
-    return res.status(404).json({ message: "Account not found." });
+    return next(new appError("Account not found.", 404));
   }
 
   // Check if OTP already exists and hasn't expired
   if (!isOtpExpired(user.otpExpiry)) {
-    return res.status(400).json({
-      message: "Current OTP is still valid. Please wait for it to expire.",
-    });
+    return next(
+      new appError(
+        "Current OTP is still valid. Please wait for it to expire.",
+        400
+      )
+    );
   }
 
   // Generate a new OTP
@@ -91,7 +93,7 @@ exports.resendOtp = catchAsync(async (req, res, next) => {
   await user.save();
 
   // Send the new OTP via email
-  await sendEmail({
+  sendEmail({
     email: user.email,
     subject: "Your OTP valid for just 1 minute",
     message: `Your OTP is :  ${otp}`,
