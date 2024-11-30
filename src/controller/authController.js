@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
-const { OAuth2Client } = require("google-auth-library");
+// const { OAuth2Client } = require("google-auth-library");
 const axios = require("axios");
 const passport = require("passport");
 const { Sequelize } = require("../config/db");
@@ -13,8 +13,15 @@ const appError = require("../utils/appError");
 // const socialTokenHelper = require("../helpers/googleSocialToken");
 const { generateOtp, hashOtp } = require("../utils/otpUtils");
 const { register } = require("module");
+const {
+  verifyAppleToken,
+  verifyFacebookToken,
+  verifyLinkedInToken,
+  verifyMicrosoftToken,
+  verifyGoogleToken,
+} = require("../helpers/socialSigninHelper");
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.TOKEN_SECRET, {
     expiresIn: "90d",
@@ -78,7 +85,7 @@ exports.signUp = catchAsync(async (req, res, next) => {
     isVerified: false,
   });
 
-  sendEmail({
+  await sendEmail({
     email: newUser.email,
     subject: "Your OTP valid for just 1 minute",
     message: `Your OTP is :  ${otp}`,
@@ -129,7 +136,7 @@ exports.signUpGroup = catchAsync(async (req, res, next) => {
     isVerified: false,
   });
 
-  sendEmail({
+  await sendEmail({
     email: newUser.email,
     subject: "Your OTP valid for just 1 minute",
     message: `Your OTP is :  ${otp}`,
@@ -179,7 +186,7 @@ exports.login = catchAsync(async (req, res, next) => {
   await user.save();
 
   // Send OTP to the user's email
-  sendEmail({
+  await sendEmail({
     email: user.email,
     subject: "Your OTP is valid for 1 minute",
     message: `Your OTP is: ${otp}`,
@@ -263,7 +270,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 
   try {
     // Send email
-    sendEmail({
+    await sendEmail({
       email: user.email,
       subject: "Your password reset token (valid for 10 minutes)",
       message,
@@ -342,49 +349,98 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   });
 });
 
+// exports.socialLogin = catchAsync(async (req, res, next) => {
+//   const { socialToken, provider } = req.body;
+//   let email;
+
+//   // Google Verification
+//   if (provider === "google") {
+//     const ticket = await googleClient.verifyIdToken({
+//       idToken: socialToken,
+//     });
+//     const payload = ticket.getPayload();
+//     email = payload.email;
+//     if (!email) {
+//       return next(new appError("Invalid Token", 400));
+//     }
+//     // Facebook Verification
+//   } else if (provider === "facebook") {
+//     const response = await axios.get(
+//       `https://graph.facebook.com/me?fields=email&access_token=${socialToken}`
+//     );
+//     email = response.data.email;
+//     if (!email) {
+//       return next(new appError("Invalid Token", 400));
+//     }
+
+//     // Apple Verification
+//   } else if (provider === "apple") {
+// const decodedToken = jwt.decode(socialToken, { complete: true });
+// const { data: appleKeys } = await axios.get(
+//   "https://appleid.apple.com/auth/keys"
+// );
+// const key = appleKeys.keys.find((k) => k.kid === decodedToken.header.kid);
+
+// if (!key) return next(new appError("Invalid Apple token", 400));
+
+// jwt.verify(socialToken, key, { algorithms: ["RS256"] });
+// email = decodedToken.payload.email;
+//   } else {
+//     return next(new appError("Unsupported provider", 400));
+//   }
+
+//   // Check if User Exists in DB
+//   let user = await IndividualUser.findOne({ where: { email } });
+//   if (!user) user = await GroupAccount.findOne({ where: { email } });
+
+//   if (user) {
+//     if (!user.isVerified) {
+//       user.isVerified = true;
+//       await user.save();
+//     }
+//     const token = signToken(user.id);
+//     return res.status(200).json({
+//       message: "Login successful",
+//       userRegister: true,
+//       token,
+//       email,
+//     });
+//   }
+
+//   return res.status(202).json({
+//     userRegister: false,
+//     email,
+//   });
+// });
+
+// Controller Function to Handle Social Logins
 exports.socialLogin = catchAsync(async (req, res, next) => {
-  const { socialToken, provider } = req.body;
-  let email;
+  const { provider, socialToken } = req.body;
 
-  // Google Verification
-  if (provider === "google") {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: socialToken,
-    });
-    const payload = ticket.getPayload();
-    email = payload.email;
-    if (!email) {
-      return next(new appError("Invalid Token", 400));
-    }
-    // Facebook Verification
-  } else if (provider === "facebook") {
-    const response = await axios.get(
-      `https://graph.facebook.com/me?fields=email&access_token=${socialToken}`
-    );
-    email = response.data.email;
-    if (!email) {
-      return next(new appError("Invalid Token", 400));
-    }
-
-    // Apple Verification
-  } else if (provider === "apple") {
-    const decodedToken = jwt.decode(socialToken, { complete: true });
-    const { data: appleKeys } = await axios.get(
-      "https://appleid.apple.com/auth/keys"
-    );
-    const key = appleKeys.keys.find((k) => k.kid === decodedToken.header.kid);
-
-    if (!key) return next(new appError("Invalid Apple token", 400));
-
-    jwt.verify(socialToken, key, { algorithms: ["RS256"] });
-    email = decodedToken.payload.email;
-  } else {
-    return next(new appError("Unsupported provider", 400));
+  let userData;
+  switch (provider) {
+    case "google":
+      userData = await verifyGoogleToken(socialToken);
+      break;
+    case "facebook":
+      userData = await verifyFacebookToken(socialToken);
+      break;
+    case "apple":
+      userData = await verifyAppleToken(socialToken);
+      break;
+    case "linkedin":
+      userData = await verifyLinkedInToken(socialToken);
+      break;
+    case "microsoft":
+      userData = await verifyMicrosoftToken(socialToken);
+      break;
+    default:
+      return next(new appError("Unsupported provider", 400));
   }
 
-  // Check if User Exists in DB
-  let user = await IndividualUser.findOne({ where: { email } });
-  if (!user) user = await GroupAccount.findOne({ where: { email } });
+  let user = await IndividualUser.findOne({ where: { email: userData.email } });
+  if (!user)
+    user = await GroupAccount.findOne({ where: { email: userData.email } });
 
   if (user) {
     if (!user.isVerified) {
@@ -396,13 +452,13 @@ exports.socialLogin = catchAsync(async (req, res, next) => {
       message: "Login successful",
       userRegister: true,
       token,
-      email,
+      email: userData.email,
     });
   }
 
   return res.status(202).json({
     userRegister: false,
-    email,
+    email: userData.email,
   });
 });
 
