@@ -21,7 +21,7 @@ app.use(helmet());
 // app.use(bodyParser.json());
 app.use(express.json({ limit: "10kb" }));
 app.use(xss());
-
+app.set("trust proxy", 1);
 //security for limit requests
 const limiter = rateLimit({
   max: 100,

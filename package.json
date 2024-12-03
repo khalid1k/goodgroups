@@ -19,6 +19,7 @@
     "google-auth-library": "^9.15.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.8.3",
     "nodemailer": "^6.9.16",
     "passport": "^0.7.0",
     "passport-apple": "^2.0.2",
