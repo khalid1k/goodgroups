@@ -7,12 +7,14 @@ const rateLimit = require("express-rate-limit");
 const { connectDB, sequelize } = require("./src/config/db");
 const userRoutes = require("./src/routes/userRoutes");
 const otpRoute = require("./src/routes/otpVerifyRoute");
+const opportunitiesRoute = require("./src/routes/opportunityListRoutes");
 const socialAuthRoutes = require("./src/routes/socialAuthRoutes");
 const xss = require("xss-clean");
 const helmet = require("helmet");
 const app = express();
 const path = require("path");
 const passport = require("passport");
+const { createOpportunityListData } = require("./src/models/opportunityList");
 // require("./src/config/passport");
 // const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const PORT = 3000;
@@ -37,6 +39,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(socialAuthRoutes);
 app.use("/user", userRoutes);
 app.use("/otp", otpRoute);
+app.use("/opportunities", opportunitiesRoute);
 //handle the wrong routes
 app.all("*", (req, res, next) => {
   next(new appError(`Can't Find ${req.originalUrl} on this server`, 404));
@@ -52,6 +55,7 @@ app.listen(PORT, async () => {
   try {
     await sequelize.sync({ alter: true }); // Use { force: true } to drop and recreate tables
     console.log("Database synced!");
+    await createOpportunityListData();
   } catch (error) {
     console.error("Error syncing database:", error);
   }
