@@ -55,7 +55,7 @@ app.listen(PORT, async () => {
   try {
     await sequelize.sync({ alter: true }); // Use { force: true } to drop and recreate tables
     console.log("Database synced!");
-    await createOpportunityListData();
+    // await createOpportunityListData();
   } catch (error) {
     console.error("Error syncing database:", error);
   }
