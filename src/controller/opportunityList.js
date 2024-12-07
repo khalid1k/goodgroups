@@ -1,3 +1,5 @@
+const { Op } = require("sequelize");
+const { sequelize } = require("../config/db");
 const cathAsync = require("../utils/catchAsync");
 const appError = require("../utils/appError");
 const { OpportunityList } = require("../models/opportunityList");
@@ -30,23 +32,76 @@ const AvailableDate = require("../models/availableDate");
 //   }
 // };
 
+// exports.getAllOpportunities = cathAsync(async (req, res, next) => {
+//   const opportunities = await OpportunityList.findAll({
+//     include: [
+//       { model: Volunteer, as: "volunteers" },
+//       { model: Highlight, as: "highlights" },
+//       { model: Service, as: "services" },
+//       { model: Review, as: "all_reviews" },
+//       // { model: Restriction, as: "restrictions" },
+//     ],
+//   });
+
+//   if (!opportunities) {
+//     return next(new appError("There is no record", 404));
+//   }
+
+//   // Calculate average rating for each opportunity
+//   const opportunitiesWithRatings = opportunities.map((opportunity) => {
+//     const reviews = opportunity.all_reviews || [];
+//     const totalRating = reviews.reduce(
+//       (sum, review) => sum + review.rating_count,
+//       0
+//     );
+//     const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+//     return {
+//       ...opportunity.toJSON(), // Convert Sequelize instance to plain object
+//       average_rating: averageRating.toFixed(2),
+//     };
+//   });
+
+//   res.status(200).json({ status: "success", opportunitiesWithRatings });
+// });
+
 exports.getAllOpportunities = cathAsync(async (req, res, next) => {
-  const opportunities = await OpportunityList.findAll({
+  const { page = 1, limit = 10 } = req.query; // Default to page 1 and 10 items per page
+
+  // Parse the page and limit to integers
+  const pageNumber = parseInt(page, 10);
+  const pageSize = parseInt(limit, 10);
+
+  if (
+    isNaN(pageNumber) ||
+    isNaN(pageSize) ||
+    pageNumber <= 0 ||
+    pageSize <= 0
+  ) {
+    return next(new appError("Page and limit must be positive integers", 400));
+  }
+
+  // Calculate offset for pagination
+  const offset = (pageNumber - 1) * pageSize;
+
+  // Query the database with pagination
+  const { count, rows } = await OpportunityList.findAndCountAll({
+    offset, // Skip the first N records
+    limit: pageSize, // Return only this many records
+    distinct: true,
     include: [
       { model: Volunteer, as: "volunteers" },
       { model: Highlight, as: "highlights" },
       { model: Service, as: "services" },
       { model: Review, as: "all_reviews" },
-      // { model: Restriction, as: "restrictions" },
     ],
   });
 
-  if (!opportunities) {
-    return next(new appError("There is no record", 404));
+  if (!rows || rows.length === 0) {
+    return next(new appError("No opportunities found", 404));
   }
 
   // Calculate average rating for each opportunity
-  const opportunitiesWithRatings = opportunities.map((opportunity) => {
+  const opportunitiesWithRatings = rows.map((opportunity) => {
     const reviews = opportunity.all_reviews || [];
     const totalRating = reviews.reduce(
       (sum, review) => sum + review.rating_count,
@@ -59,7 +114,14 @@ exports.getAllOpportunities = cathAsync(async (req, res, next) => {
     };
   });
 
-  res.status(200).json({ status: "success", opportunitiesWithRatings });
+  // Return paginated results
+  res.status(200).json({
+    status: "success",
+    totalItems: count,
+    currentPage: pageNumber,
+    totalPages: Math.ceil(count / pageSize),
+    opportunities: opportunitiesWithRatings,
+  });
 });
 
 // Get a single opportunity by ID
@@ -130,7 +192,8 @@ const deleteOpportunity = async (req, res) => {
 exports.updateFavoriteStatus = cathAsync(async (req, res, next) => {
   const { id } = req.params;
   const { favorite } = req.body;
-
+  console.log("id of the list is", id);
+  console.log("favorite value of the list is", favorite);
   // Find the opportunity by ID
   const opportunity = await OpportunityList.findByPk(id);
 
@@ -161,3 +224,106 @@ exports.getFavoriteOpportunities = cathAsync(async (req, res, next) => {
 
   res.status(200).json({ status: "success", favoriteOpportunities });
 });
+
+// exports.getOpportunitiesByDistance = async (req, res) => {
+//   try {
+//     const { latitude, longitude, distance } = req.query;
+
+//     if (!latitude || !longitude || !distance) {
+//       return res.status(400).json({
+//         message: "latitude, longitude, and distance are required",
+//       });
+//     }
+
+//     // Convert distance to radians (distance / Earth's radius in km)
+//     const earthRadiusKm = 6371;
+//     const distanceInRadians = distance / earthRadiusKm;
+
+//     // Query to filter opportunities within the given distance
+//     const opportunities = await OpportunityList.findAll({
+//       where: Sequelize.where(
+//         Sequelize.fn(
+//           "ST_Distance_Sphere",
+//           Sequelize.fn(
+//             "POINT",
+//             Sequelize.col("longitude"),
+//             Sequelize.col("latitude")
+//           ),
+//           Sequelize.fn("POINT", longitude, latitude)
+//         ),
+//         { [Op.lte]: distance * 1000 } // Convert distance to meters
+//       ),
+//       include: [
+//         { model: Volunteer, as: "volunteers" },
+//         { model: Highlight, as: "highlights" },
+//         { model: Service, as: "services" },
+//         { model: Review, as: "all_reviews" },
+//         // { model: Restriction, as: "restrictions" },
+//       ],
+//     });
+
+//     res.status(200).json(opportunities);
+//   } catch (error) {
+//     console.error("Error fetching opportunities by distance:", error);
+//     res.status(500).json({
+//       message: "Failed to retrieve opportunities by distance",
+//       error,
+//     });
+//   }
+// };
+
+exports.getOpportunitiesByDistance = async (req, res) => {
+  try {
+    const { latitude, longitude, distance } = req.query;
+
+    if (!latitude || !longitude || !distance) {
+      return res.status(400).json({
+        message: "latitude, longitude, and distance are required",
+      });
+    }
+
+    const earthRadiusKm = 6371; // Earth's radius in kilometers
+
+    // Raw SQL query with Haversine formula
+    const query = `
+      SELECT *,
+        (${earthRadiusKm} *
+          acos(
+            cos(radians(:latitude)) * 
+            cos(radians(latitude)) * 
+            cos(radians(longitude) - radians(:longitude)) + 
+            sin(radians(:latitude)) * 
+            sin(radians(latitude))
+          )
+        ) AS distance
+      FROM "OpportunityLists"
+      WHERE (
+        ${earthRadiusKm} *
+          acos(
+            cos(radians(:latitude)) * 
+            cos(radians(latitude)) * 
+            cos(radians(longitude) - radians(:longitude)) + 
+            sin(radians(:latitude)) * 
+            sin(radians(latitude))
+          )
+        ) <= :distance
+    `;
+
+    const opportunities = await sequelize.query(query, {
+      replacements: {
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        distance: parseFloat(distance),
+      },
+      type: sequelize.QueryTypes.SELECT,
+    });
+
+    res.status(200).json(opportunities);
+  } catch (error) {
+    console.error("Error fetching opportunities by distance:", error);
+    res.status(500).json({
+      message: "Failed to retrieve opportunities by distance",
+      error,
+    });
+  }
+};

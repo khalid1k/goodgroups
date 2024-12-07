@@ -14,4 +14,8 @@ router.get(
   "/get-all-favorite-opportunities-list",
   opportunityListController.getFavoriteOpportunities
 );
+router.get(
+  "/get-opportunities-by-distance",
+  opportunityListController.getOpportunitiesByDistance
+);
 module.exports = router;
