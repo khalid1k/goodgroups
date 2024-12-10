@@ -483,3 +483,29 @@ exports.deleteUser = async (req, res) => {
     return res.status(500).json({ message: "Internal server error.", error });
   }
 };
+
+//controller to protect the routes
+
+// exports.protect = catchAsync(async (req, res, next) => {
+//   let token;
+//   if (
+//     req.headers.authorization &&
+//     req.headers.authorization.startsWith("Bearer")
+//   ) {
+//     token = req.headers.authorization.split(" ")[1];
+//   }
+//   if (!token) {
+//     return next(new appError("yor are not login please login to access", 401));
+//   }
+//   //verify the token
+//   const decoded = await promisify(jwt.verify)(token, process.env.TOKEN_SECRET);
+//   const currentUser = await User.findById(decoded.id);
+//   if (!currentUser) {
+//     return next(
+//       new appError("the user belong to this token doesn't exist", 401)
+//     );
+//   }
+//   req.user = currentUser;
+//   //now here user can access the routes
+//   next();
+// });

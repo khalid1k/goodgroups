@@ -18,4 +18,16 @@ router.get(
   "/get-opportunities-by-distance",
   opportunityListController.getOpportunitiesByDistance
 );
+router.get(
+  "/get-opportunities-by-segments",
+  opportunityListController.getOpportunitiesBySegments
+);
+router.get(
+  "/get-opportunities-by-time",
+  opportunityListController.getOpportunitiesByTime
+);
+router.get(
+  "/get-opportunities-by-Filters",
+  opportunityListController.getFilteredOpportunities
+);
 module.exports = router;
