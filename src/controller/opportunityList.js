@@ -5,64 +5,6 @@ const appError = require("../utils/appError");
 const { OpportunityList } = require("../models/opportunityList");
 const Volunteer = require("../models/volunteer");
 const Review = require("../models/review");
-const Service = require("../models/services");
-const Highlight = require("../models/highlight");
-const Restriction = require("../models/restriction");
-const AvailableDate = require("../models/availableDate");
-
-// Get all opportunities
-// exports.getAllOpportunities = async (req, res) => {
-//   try {
-//     const opportunities = await OpportunityList.findAll({
-//       include: [
-//         { model: Volunteer, as: "volunteers" },
-//         { model: Highlight, as: "highlights" },
-//         { model: Service, as: "services" },
-//         // { model: AvailableDate, as: "available_dates" },
-//         { model: Review, as: "all_reviews" },
-//         { model: Restriction, as: "restrictions" },
-//       ],
-//     });
-//     res.status(200).json(opportunities);
-//   } catch (error) {
-//     console.error("Error fetching opportunities:", error);
-//     res
-//       .status(500)
-//       .json({ message: "Failed to retrieve opportunities", error });
-//   }
-// };
-
-// exports.getAllOpportunities = cathAsync(async (req, res, next) => {
-//   const opportunities = await OpportunityList.findAll({
-//     include: [
-//       { model: Volunteer, as: "volunteers" },
-//       { model: Highlight, as: "highlights" },
-//       { model: Service, as: "services" },
-//       { model: Review, as: "all_reviews" },
-//       // { model: Restriction, as: "restrictions" },
-//     ],
-//   });
-
-//   if (!opportunities) {
-//     return next(new appError("There is no record", 404));
-//   }
-
-//   // Calculate average rating for each opportunity
-//   const opportunitiesWithRatings = opportunities.map((opportunity) => {
-//     const reviews = opportunity.all_reviews || [];
-//     const totalRating = reviews.reduce(
-//       (sum, review) => sum + review.rating_count,
-//       0
-//     );
-//     const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
-//     return {
-//       ...opportunity.toJSON(), // Convert Sequelize instance to plain object
-//       average_rating: averageRating.toFixed(2),
-//     };
-//   });
-
-//   res.status(200).json({ status: "success", opportunitiesWithRatings });
-// });
 
 exports.getAllOpportunities = cathAsync(async (req, res, next) => {
   const { page = 1, limit = 10 } = req.query; // Default to page 1 and 10 items per page
@@ -90,8 +32,6 @@ exports.getAllOpportunities = cathAsync(async (req, res, next) => {
     distinct: true,
     include: [
       { model: Volunteer, as: "volunteers" },
-      { model: Highlight, as: "highlights" },
-      { model: Service, as: "services" },
       { model: Review, as: "all_reviews" },
     ],
   });
@@ -181,14 +121,6 @@ const deleteOpportunity = async (req, res) => {
   }
 };
 
-// module.exports = {
-//   getAllOpportunities,
-//   getOpportunityById,
-//   createOpportunity,
-//   updateOpportunity,
-//   deleteOpportunity,
-// };
-
 exports.updateFavoriteStatus = cathAsync(async (req, res, next) => {
   const { id } = req.params;
   const { favorite } = req.body;
@@ -204,24 +136,6 @@ exports.updateFavoriteStatus = cathAsync(async (req, res, next) => {
   await opportunity.save();
   res.status(200).json({ message: "Favorite status updated successfully" });
 });
-
-// exports.getFavoriteOpportunities = cathAsync(async (req, res, next) => {
-//   const favoriteOpportunities = await OpportunityList.findAll({
-//     where: { favorite: true },
-//     include: [
-//       { model: Volunteer, as: "volunteers" },
-//       { model: Highlight, as: "highlights" },
-//       { model: Service, as: "services" },
-//       { model: Review, as: "all_reviews" },
-//     ],
-//   });
-
-//   if (favoriteOpportunities.length === 0) {
-//     return next(new appError("No favorite opportunities found", 404));
-//   }
-
-//   res.status(200).json({ status: "success", favoriteOpportunities });
-// });
 
 exports.getFavoriteOpportunities = cathAsync(async (req, res, next) => {
   const { page = 1, limit = 10 } = req.query; // Default to page 1 and 10 items per page
@@ -248,8 +162,6 @@ exports.getFavoriteOpportunities = cathAsync(async (req, res, next) => {
     distinct: true,
     include: [
       { model: Volunteer, as: "volunteers" },
-      { model: Highlight, as: "highlights" },
-      { model: Service, as: "services" },
       { model: Review, as: "all_reviews" },
     ],
   });
@@ -458,8 +370,6 @@ exports.getOpportunitiesByDistance = cathAsync(async (req, res, next) => {
     distinct: true,
     include: [
       { model: Volunteer, as: "volunteers" },
-      { model: Highlight, as: "highlights" },
-      { model: Service, as: "services" },
       { model: Review, as: "all_reviews" },
     ],
   });
@@ -542,8 +452,6 @@ exports.getOpportunitiesBySegments = cathAsync(async (req, res, next) => {
     distinct: true,
     include: [
       { model: Volunteer, as: "volunteers" },
-      { model: Highlight, as: "highlights" },
-      { model: Service, as: "services" },
       { model: Review, as: "all_reviews" },
     ],
   });
@@ -708,8 +616,6 @@ exports.getOpportunitiesByTime = cathAsync(async (req, res, next) => {
     distinct: true,
     include: [
       { model: Volunteer, as: "volunteers" },
-      { model: Highlight, as: "highlights" },
-      { model: Service, as: "services" },
       { model: Review, as: "all_reviews" },
     ],
   });
@@ -742,3 +648,111 @@ exports.getOpportunitiesByTime = cathAsync(async (req, res, next) => {
 });
 
 //controller to get the opportunities by different filters
+
+exports.getFilteredOpportunities = cathAsync(async (req, res, next) => {
+  const {
+    page = 1,
+    limit = 10,
+    segments,
+    suitable_for,
+    services,
+    highlights,
+    donation,
+  } = req.query;
+
+  const pageNumber = parseInt(page, 10);
+  const pageSize = parseInt(limit, 10);
+
+  if (
+    isNaN(pageNumber) ||
+    isNaN(pageSize) ||
+    pageNumber <= 0 ||
+    pageSize <= 0
+  ) {
+    return next(
+      new appError("Page and limit must be valid positive integers", 400)
+    );
+  }
+
+  const filters = {};
+
+  if (segments) {
+    const segmentArray = segments.split(",");
+    filters.segments = { [Op.contains]: segmentArray };
+  }
+
+  if (suitable_for) {
+    const suitableForArray = suitable_for.split(",");
+    filters.suitable_for = { [Op.contains]: suitableForArray };
+  }
+
+  if (services) {
+    const serviceArray = services.split(",");
+    filters.services = {
+      [Op.or]: serviceArray.map((service) => ({
+        [Op.contains]: [{ text: service }],
+      })),
+    };
+  }
+
+  if (highlights) {
+    const highlightArray = highlights.split(",");
+    filters.highlights = {
+      [Op.or]: highlightArray.map((highlight) => ({
+        [Op.contains]: [{ text: highlight }],
+      })),
+    };
+  }
+
+  if (donation) {
+    const donationValue = parseInt(donation, 10);
+    if ([0, 10, 25].includes(donationValue)) {
+      filters.donationAmount = donationValue;
+    } else {
+      return next(
+        new appError("Donation must be one of the values: 0, 10, 25", 400)
+      );
+    }
+  }
+
+  const offset = (pageNumber - 1) * pageSize;
+
+  const { count, rows } = await OpportunityList.findAndCountAll({
+    where: filters,
+    offset,
+    limit: pageSize,
+    distinct: true,
+    include: [
+      { model: Volunteer, as: "volunteers" },
+      { model: Review, as: "all_reviews" },
+    ],
+  });
+
+  if (!rows || rows.length === 0) {
+    return next(
+      new appError("No opportunities found matching the criteria", 404)
+    );
+  }
+
+  const opportunities = rows.map((opportunity) => {
+    const reviews = opportunity.all_reviews || [];
+    const totalRating = reviews.reduce(
+      (sum, review) => sum + review.rating_count,
+      0
+    );
+    const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+
+    return {
+      ...opportunity.toJSON(),
+      average_rating: averageRating.toFixed(2),
+    };
+  });
+
+  res.status(200).json({
+    status: "success",
+    totalItems: count,
+    currentPage: pageNumber,
+    totalPages: Math.ceil(count / pageSize),
+    opportunities,
+  });
+});
