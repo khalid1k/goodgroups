@@ -1,3 +1,4 @@
+const { OpportunityList } = require("./opportunityList");
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/db");
 
@@ -6,4 +7,5 @@ const Volunteer = sequelize.define("Volunteer", {
   profile_description: { type: DataTypes.TEXT },
   profile_image: { type: DataTypes.STRING },
 });
+
 module.exports = Volunteer;

@@ -9,6 +9,8 @@ const userRoutes = require("./src/routes/userRoutes");
 const otpRoute = require("./src/routes/otpVerifyRoute");
 const opportunitiesRoute = require("./src/routes/opportunityListRoutes");
 const socialAuthRoutes = require("./src/routes/socialAuthRoutes");
+const volunteerRoutes = require("./src/routes/volunteerRoutes");
+const reviewRoutes = require("./src/routes/reviewRoutes");
 const xss = require("xss-clean");
 const helmet = require("helmet");
 const app = express();
@@ -40,6 +42,8 @@ app.use(socialAuthRoutes);
 app.use("/user", userRoutes);
 app.use("/otp", otpRoute);
 app.use("/opportunities", opportunitiesRoute);
+app.use("/volunteer", volunteerRoutes);
+app.use("/review", reviewRoutes);
 //handle the wrong routes
 app.all("*", (req, res, next) => {
   next(new appError(`Can't Find ${req.originalUrl} on this server`, 404));

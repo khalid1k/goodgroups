@@ -1,7 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const opportunityListController = require("../controller/opportunityList");
-
+router.post(
+  "/create-opportunity-list",
+  opportunityListController.createOpportunityList
+);
+router.put(
+  "/update-opportunity-list/:id",
+  opportunityListController.updateOpportunityList
+);
+router.delete(
+  "/delete-opportunity-list/:id",
+  opportunityListController.deleteOpportunityList
+);
 router.get(
   "/get-all-opportunities-list",
   opportunityListController.getAllOpportunities
