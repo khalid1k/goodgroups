@@ -1,8 +1,11 @@
 const express = require("express");
 const router = express.Router();
+const { upload } = require("../utils/cloudinary");
 const opportunityListController = require("../controller/opportunityList");
+const authController = require("../controller/authController");
 router.post(
   "/create-opportunity-list",
+  upload,
   opportunityListController.createOpportunityList
 );
 router.put(
@@ -40,5 +43,9 @@ router.get(
 router.get(
   "/get-opportunities-by-Filters",
   opportunityListController.getFilteredOpportunities
+);
+router.get(
+  "/getOpportunitiesByUser",
+  opportunityListController.getOpportunitiesByUserAndAccountType
 );
 module.exports = router;

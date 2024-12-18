@@ -5,12 +5,12 @@ const appError = require("../utils/appError");
 const IndividualUser = require("../models/individual-account");
 const GroupAccount = require("../models/group-account");
 const jwt = require("jsonwebtoken");
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.TOKEN_SECRET, {
+const signToken = (id, accountType) => {
+  return jwt.sign({ id, accountType }, process.env.TOKEN_SECRET, {
     expiresIn: "90d",
   });
 };
-const createSendToken = (user, statusCode, res) => {
+const createSendToken = (user, statusCode, res, accountType) => {
   const cookieOptions = {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIES_EXPIRES * 24 * 60 * 60 * 1000
@@ -18,12 +18,12 @@ const createSendToken = (user, statusCode, res) => {
     secure: true,
     httpOnly: true,
   };
-  const token = signToken(user.id);
-  res.cookie("jwt", token, cookieOptions);
+  const token = signToken(user.id, accountType);
+  res.cookie("jwt", token, cookieOptions, accountType);
   res.status(statusCode).json({
     message: "success",
     token,
-    user,
+    accountType,
   });
 };
 
@@ -52,7 +52,7 @@ exports.verifyOtp = catchAsync(async (req, res, next) => {
   user.otp = null; // Clear OTP
   user.otpExpiry = null; // Clear OTP expiry
   await user.save();
-  createSendToken(user, 200, res);
+  createSendToken(user, 200, res, accountType);
 });
 
 // controller to resend the otp

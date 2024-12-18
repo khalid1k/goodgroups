@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const { promisify } = require("util");
 const jwt = require("jsonwebtoken");
 // const { OAuth2Client } = require("google-auth-library");
 const axios = require("axios");
@@ -27,7 +28,7 @@ const signToken = (id) => {
     expiresIn: "90d",
   });
 };
-const createSendToken = (user, statusCode, res) => {
+const createSendToken = (user, statusCode, res, message, accountType) => {
   const cookieOptions = {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIES_EXPIRES * 24 * 60 * 60 * 1000
@@ -35,12 +36,13 @@ const createSendToken = (user, statusCode, res) => {
     secure: true,
     httpOnly: true,
   };
-  const token = signToken(user._id);
-  res.cookie("jwt", token, cookieOptions);
+  const token = signToken({ id: user._id, accountType });
+  res.cookie("jwt", token, cookieOptions, accountType);
   res.status(statusCode).json({
-    message: "success",
+    message: message,
     token,
-    user,
+    email: user.email,
+    accountType,
   });
 };
 
@@ -153,7 +155,7 @@ exports.login = catchAsync(async (req, res, next) => {
   const { email } = req.body;
 
   if (!email) {
-    return res.status(400).json({ message: "Please provide an email." });
+    return next(new appError("Please provide an email.", 400));
   }
 
   // Find user in both models by email
@@ -349,70 +351,6 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   });
 });
 
-// exports.socialLogin = catchAsync(async (req, res, next) => {
-//   const { socialToken, provider } = req.body;
-//   let email;
-
-//   // Google Verification
-//   if (provider === "google") {
-//     const ticket = await googleClient.verifyIdToken({
-//       idToken: socialToken,
-//     });
-//     const payload = ticket.getPayload();
-//     email = payload.email;
-//     if (!email) {
-//       return next(new appError("Invalid Token", 400));
-//     }
-//     // Facebook Verification
-//   } else if (provider === "facebook") {
-//     const response = await axios.get(
-//       `https://graph.facebook.com/me?fields=email&access_token=${socialToken}`
-//     );
-//     email = response.data.email;
-//     if (!email) {
-//       return next(new appError("Invalid Token", 400));
-//     }
-
-//     // Apple Verification
-//   } else if (provider === "apple") {
-// const decodedToken = jwt.decode(socialToken, { complete: true });
-// const { data: appleKeys } = await axios.get(
-//   "https://appleid.apple.com/auth/keys"
-// );
-// const key = appleKeys.keys.find((k) => k.kid === decodedToken.header.kid);
-
-// if (!key) return next(new appError("Invalid Apple token", 400));
-
-// jwt.verify(socialToken, key, { algorithms: ["RS256"] });
-// email = decodedToken.payload.email;
-//   } else {
-//     return next(new appError("Unsupported provider", 400));
-//   }
-
-//   // Check if User Exists in DB
-//   let user = await IndividualUser.findOne({ where: { email } });
-//   if (!user) user = await GroupAccount.findOne({ where: { email } });
-
-//   if (user) {
-//     if (!user.isVerified) {
-//       user.isVerified = true;
-//       await user.save();
-//     }
-//     const token = signToken(user.id);
-//     return res.status(200).json({
-//       message: "Login successful",
-//       userRegister: true,
-//       token,
-//       email,
-//     });
-//   }
-
-//   return res.status(202).json({
-//     userRegister: false,
-//     email,
-//   });
-// });
-
 // Controller Function to Handle Social Logins
 exports.socialLogin = catchAsync(async (req, res, next) => {
   const { provider, socialToken } = req.body;
@@ -437,23 +375,27 @@ exports.socialLogin = catchAsync(async (req, res, next) => {
     default:
       return next(new appError("Unsupported provider", 400));
   }
-
+  let accountType = "IndividualUser";
   let user = await IndividualUser.findOne({ where: { email: userData.email } });
-  if (!user)
+  if (!user) {
     user = await GroupAccount.findOne({ where: { email: userData.email } });
-
+    accountType = "GroupAccount";
+  }
   if (user) {
     if (!user.isVerified) {
       user.isVerified = true;
       await user.save();
     }
-    const token = signToken(user.id);
-    return res.status(200).json({
-      message: "Login successful",
-      userRegister: true,
-      token,
-      email: userData.email,
-    });
+    let message = "Login Successful!";
+    createSendToken(user, 200, res, message, accountType);
+    // const token = signToken(user.id);
+    // return res.status(200).json({
+    //   message: "Login successful",
+    //   userRegister: true,
+    //   token,
+    //   email: userData.email,
+    //   accountType,
+    // });
   }
 
   return res.status(202).json({
@@ -484,28 +426,106 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-//controller to protect the routes
-
 // exports.protect = catchAsync(async (req, res, next) => {
 //   let token;
+
+//   // Extract the token from the authorization header
 //   if (
 //     req.headers.authorization &&
 //     req.headers.authorization.startsWith("Bearer")
 //   ) {
 //     token = req.headers.authorization.split(" ")[1];
 //   }
+
 //   if (!token) {
-//     return next(new appError("yor are not login please login to access", 401));
-//   }
-//   //verify the token
-//   const decoded = await promisify(jwt.verify)(token, process.env.TOKEN_SECRET);
-//   const currentUser = await User.findById(decoded.id);
-//   if (!currentUser) {
 //     return next(
-//       new appError("the user belong to this token doesn't exist", 401)
+//       new appError("You are not logged in. Please log in to access.", 401)
 //     );
 //   }
-//   req.user = currentUser;
-//   //now here user can access the routes
+
+//   // Verify the token
+//   const decoded = await promisify(jwt.verify)(token, process.env.TOKEN_SECRET);
+
+//   // Ensure the token contains a userType field
+//   if (!decoded.userType) {
+//     return next(new appError("Invalid token: user type is missing.", 400));
+//   }
+
+//   let user;
+
+//   // Determine user based on userType
+//   if (decoded.accountType === "IndividualUser") {
+//     user = await IndividualUser.findOne({ where: { id: decoded.id } });
+//   } else if (decoded.accountType === "GroupAccount") {
+//     user = await GroupAccount.findOne({ where: { id: decoded.id } });
+//   } else {
+//     return next(new appError("Invalid user type provided in the token.", 400));
+//   }
+
+//   // If no user is found, return an error
+//   if (!user) {
+//     return next(
+//       new appError("The user associated with this token does not exist.", 401)
+//     );
+//   }
+
+//   // Attach the user and user type to the request object
+//   req.user = user;
+//   req.accountType = decoded.accountType;
+
+//   // Grant access to the route
 //   next();
 // });
+
+exports.protectRoute = catchAsync(async (req, res, next) => {
+  let token;
+
+  // Extract the token from the authorization header
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  if (!token) {
+    return next(
+      new appError("You are not logged in. Please log in to access.", 401)
+    );
+  }
+
+  // Verify the token
+  const decoded = await promisify(jwt.verify)(token, process.env.TOKEN_SECRET);
+
+  // Ensure the token contains a userType field
+  if (!decoded.accountType) {
+    return next(new appError("Invalid token: account type is missing.", 400));
+  }
+
+  let user;
+
+  // Determine user based on accountType
+  if (decoded.accountType === "IndividualUser") {
+    user = await IndividualUser.findByPk(decoded.id); // Query using primary key
+  } else if (decoded.accountType === "GroupAccount") {
+    user = await GroupAccount.findByPk(decoded.id); // Query using primary key
+  } else {
+    return next(
+      new appError("Invalid account type provided in the token.", 400)
+    );
+  }
+
+  // If no user is found, return an error
+  if (!user) {
+    return next(
+      new appError("The user associated with this token does not exist.", 401)
+    );
+  }
+
+  // Attach the user and account type to the request object
+  req.user = user;
+  req.accountType = decoded.accountType;
+
+  // Grant access to the route
+  next();
+});

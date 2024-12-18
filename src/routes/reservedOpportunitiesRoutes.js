@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const reservedOpportunityController = require("../controller/reservedOpportunitiesRoutes");
+const reservedOpportunityController = require("../controller/reservedOpportunitiesController");
 
 router.post(
   "/Create-reserved-opportunity",
