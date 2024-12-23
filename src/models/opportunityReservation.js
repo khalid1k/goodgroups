@@ -4,31 +4,45 @@ const { OpportunityList } = require("./opportunityList");
 const IndividualUser = require("./individual-account");
 const GroupAccount = require("./group-account");
 
-const ReservedOpportunityList = sequelize.define("ReservedOpportunityList", {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-    allowNull: false,
-  },
-  opportunityListId: {
-    type: DataTypes.INTEGER,
-    references: {
-      model: OpportunityList,
-      key: "id",
+const ReservedOpportunityList = sequelize.define(
+  "ReservedOpportunityList",
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+      allowNull: false,
     },
-    allowNull: false,
+    opportunityListId: {
+      type: DataTypes.UUID,
+      references: {
+        model: OpportunityList,
+        key: "id",
+      },
+      allowNull: false,
+    },
+    // Can store user information as either Individual or Group
+    userId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+
+    boardingPass: {
+      type: DataTypes.STRING,
+    },
+    checkedIn: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    isApproved: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
   },
-  // Can store user information as either Individual or Group
-  userId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-  userType: {
-    type: DataTypes.ENUM("IndividualUser", "GroupAccount"),
-    allowNull: false,
-  },
-});
+  {
+    tableName: "ReservedOpportunityList",
+  }
+);
 
 // Associations
 ReservedOpportunityList.belongsTo(OpportunityList, {

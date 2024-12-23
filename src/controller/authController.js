@@ -36,12 +36,13 @@ const createSendToken = (user, statusCode, res, message, accountType) => {
     secure: true,
     httpOnly: true,
   };
-  const token = signToken({ id: user._id, accountType });
+  const token = signToken({ id: user.id, accountType });
   res.cookie("jwt", token, cookieOptions, accountType);
   res.status(statusCode).json({
     message: message,
     token,
     email: user.email,
+    userId: user.id,
     accountType,
   });
 };

@@ -12,14 +12,11 @@ const socialAuthRoutes = require("./src/routes/socialAuthRoutes");
 const volunteerRoutes = require("./src/routes/volunteerRoutes");
 const reviewRoutes = require("./src/routes/reviewRoutes");
 const reservedOpportunityRoutes = require("./src/routes/reservedOpportunitiesRoutes");
+const invitationRoutes = require("./src/routes/invitationRoutes");
 const xss = require("xss-clean");
 const helmet = require("helmet");
 const app = express();
 const path = require("path");
-const passport = require("passport");
-const { createOpportunityListData } = require("./src/models/opportunityList");
-// require("./src/config/passport");
-// const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const PORT = 3000;
 app.use(helmet());
 // Middleware
@@ -46,6 +43,7 @@ app.use("/opportunities", opportunitiesRoute);
 app.use("/volunteer", volunteerRoutes);
 app.use("/review", reviewRoutes);
 app.use("/api-v1-reserved-opportunities", reservedOpportunityRoutes);
+app.use("/api/v1/invitation", invitationRoutes);
 //handle the wrong routes
 app.all("*", (req, res, next) => {
   next(new appError(`Can't Find ${req.originalUrl} on this server`, 404));

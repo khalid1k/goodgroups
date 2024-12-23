@@ -9,111 +9,60 @@ const catchAsync = require("../utils/catchAsync");
 const { uploadToCloudinary } = require("../utils/cloudinary");
 const IndividualUser = require("../models/individual-account");
 const GroupAccount = require("../models/group-account");
-// exports.createOpportunityList = cathAsync(async (req, res, next) => {
+const { identifyUserType } = require("../utils/userUtills");
 
-//     const {
-//       date_time,
-//       image_path,
-//       title,
-//       category,
-//       background_check,
-//       minimum_participants,
-//       maximum_participants,
-//       partner_cohost_group,
-//       impact_reporting,
-//       waiver,
-//       assigned_managers,
-//       cancellation_policy,
-//       opportunity_recurring,
-//       listing_status,
-//       prepare_plane_description,
-//       opportunity_access,
-//       description,
-//       hours,
-//       favorite,
-//       about,
-//       latitude,
-//       longitude,
-//       full_address,
-//       location_detail,
-//       preparation,
-//       donationAmount,
-//       available_dates,
-//       restrictions,
-//       suitable_for,
-//       services,
-//       highlights,
-//       duration,
-//       segments,
-//     } = req.body;
+exports.createOpportunityList = catchAsync(async (req, res, next) => {
+  const parseIfArrayOrObject = (value) => {
+    if (value == null) return value; // Handle null or undefined
 
-//     // Validate required fields
-//     if (
-//       !date_time ||
-//       !image_path ||
-//       !title ||
-//       !category ||
-//       !description ||
-//       !latitude ||
-//       !longitude ||
-//       !full_address ||
-//       !hours ||
-//       !available_dates ||
-//       !restrictions ||
-//       !suitable_for
-//     ) {
-//       return next(new appError("Missing required fields. Please provide all mandatory values.", 400));
-//     }
+    // Handle array-like string
+    if (
+      typeof value === "string" &&
+      value.startsWith("[") &&
+      value.endsWith("]")
+    ) {
+      if (value === "[]") {
+        return [];
+      }
 
-//     // Create the new opportunity
-//     const newOpportunity = await OpportunityList.create({
-//       date_time,
-//       image_path,
-//       title,
-//       category,
-//       background_check,
-//       minimum_participants,
-//       maximum_participants,
-//       partner_cohost_group,
-//       impact_reporting,
-//       waiver,
-//       assigned_managers,
-//       cancellation_policy,
-//       opportunity_recurring,
-//       listing_status,
-//       prepare_plane_description,
-//       opportunity_access,
-//       description,
-//       hours,
-//       favorite,
-//       about,
-//       latitude,
-//       longitude,
-//       full_address,
-//       location_detail,
-//       preparation,
-//       donationAmount,
-//       available_dates,
-//       restrictions,
-//       suitable_for,
-//       services,
-//       highlights,
-//       duration,
-//       segments,
-//     });
+      // Match items inside brackets, split by commas
+      const items = value.match(/[^,\[\]]+/g);
+      if (items) {
+        return items.map((item) => {
+          let trimmed = item.trim().replace(/^['"]|['"]$/g, ""); // Remove quotes if any
+          if (!isNaN(trimmed) && trimmed !== "") {
+            return Number(trimmed); // Convert to number if it's a valid number
+          }
+          return trimmed;
+        });
+      }
+    }
 
-//     // Respond with success
-//     res.status(201).json({
-//       status: "success",
-//       message: "Opportunity created successfully",
-//       data: newOpportunity,
-//     });
-// });
+    // Handle object-like string
+    if (
+      typeof value === "string" &&
+      value.startsWith("{") &&
+      value.endsWith("}")
+    ) {
+      try {
+        return JSON.parse(value); // Parse valid JSON objects
+      } catch (e) {
+        return value;
+      }
+    }
 
-exports.createOpportunityList = cathAsync(async (req, res, next) => {
+    // Return value as is if no conditions match
+    return value;
+  };
+
+  const data = req.body;
+  Object.keys(data).forEach((key) => {
+    data[key] = parseIfArrayOrObject(data[key]);
+  });
+  console.log("data values are ", data);
+
   const {
     user_id,
-    accountType,
     date_time,
     title,
     category,
@@ -130,28 +79,26 @@ exports.createOpportunityList = cathAsync(async (req, res, next) => {
     description,
     hours,
     favorite,
-    about,
     latitude,
     longitude,
     full_address,
     location_detail,
-    preparation,
     donationAmount,
     available_dates,
-    restrictions,
     suitable_for,
     services,
     highlights,
     duration,
     segments,
-  } = req.body;
+  } = data;
 
+  // console.log("request files are ", req.files);
   if (!req.files || req.files.length === 0) {
     return next(new appError("No files uploaded", 400));
   }
 
-  // 1. Upload images to Cloudinary
-  const imageFiles = req.files.images || [];
+  // // // 1. Upload images to Cloudinary
+  const imageFiles = req.files?.images || [];
   const imageUrls = await Promise.all(
     imageFiles.map(async (file) => {
       const fileName = `${Date.now()}-${file.originalname}`;
@@ -159,15 +106,17 @@ exports.createOpportunityList = cathAsync(async (req, res, next) => {
     })
   );
 
-  // Process "waiver" field (single file)
+  // // Process "waiver" field (single file)
   let waiverUrl = "";
-  if (req.files.waiver && req.files.waiver.length > 0) {
+  if (req.files?.waiver && req.files?.waiver?.length > 0) {
     const waiverFile = req.files.waiver[0];
     const waiverFileName = `${Date.now()}-${waiverFile.originalname}`;
     waiverUrl = await uploadToCloudinary(waiverFile.buffer, waiverFileName); // Upload waiver PDF
   }
 
   // 3. Fetch user by accountType
+  let accountType = identifyUserType(user_id);
+
   let user;
   if (accountType === "IndividualUser") {
     user = await IndividualUser.findByPk(user_id);
@@ -176,16 +125,15 @@ exports.createOpportunityList = cathAsync(async (req, res, next) => {
   }
 
   if (!user) {
-    return next(new appError("Invalid user_id or account_type", 400));
+    return next(new appError("Invalid user_id ", 400));
   }
 
   // 4. Prepare data to save
   const opportunityData = {
     user_id,
-    accountType,
     date_time,
-    image_path: imageUrls, // Image URLs
-    waiver: waiverUrl, // PDF URL stored in waiver
+    image_path: imageUrls,
+    waiver: waiverUrl,
     title,
     category,
     background_check,
@@ -201,15 +149,12 @@ exports.createOpportunityList = cathAsync(async (req, res, next) => {
     description,
     hours,
     favorite,
-    about,
     latitude,
     longitude,
     full_address,
     location_detail,
-    preparation,
     donationAmount,
     available_dates,
-    restrictions,
     suitable_for,
     services,
     highlights,
@@ -236,21 +181,17 @@ exports.createOpportunityList = cathAsync(async (req, res, next) => {
     "impact_reporting",
     "assigned_managers",
     "cancellation_policy",
-    "opportunity_recurring",
     "prepare_plane_description",
     "opportunity_access",
     "description",
     "hours",
     "favorite",
-    "about",
     "latitude",
     "longitude",
     "full_address",
     "location_detail",
-    "preparation",
     "donationAmount",
     "available_dates",
-    "restrictions",
     "suitable_for",
     "services",
     "highlights",
@@ -261,8 +202,12 @@ exports.createOpportunityList = cathAsync(async (req, res, next) => {
   const isComplete = requiredFields.every((field) =>
     filteredData.hasOwnProperty(field)
   );
+  const missingFields = requiredFields.filter(
+    (field) => !filteredData.hasOwnProperty(field)
+  );
+  console.log("Missing Fields: ", missingFields);
   filteredData.listing_status = isComplete ? "published" : "inprogress";
-
+  console.log("filter data is ", filteredData);
   // 7. Save to database
   const newOpportunity = await OpportunityList.create(filteredData);
 
@@ -271,6 +216,110 @@ exports.createOpportunityList = cathAsync(async (req, res, next) => {
     data: newOpportunity,
   });
 });
+
+// exports.updateOpportunityList = catchAsync(async (req, res, next) => {
+//   const { id } = req.params;
+
+//   // Ensure the ID is provided
+//   if (!id) {
+//     return res.status(400).json({
+//       status: "fail",
+//       message: "Opportunity ID is required for updating.",
+//     });
+//   }
+
+//   // Extract the data to be updated
+//   const {
+//     date_time,
+//     image_path,
+//     title,
+//     category,
+//     background_check,
+//     minimum_participants,
+//     maximum_participants,
+//     partner_cohost_group,
+//     impact_reporting,
+//     waiver,
+//     assigned_managers,
+//     cancellation_policy,
+//     opportunity_recurring,
+//     listing_status,
+//     prepare_plane_description,
+//     opportunity_access,
+//     description,
+//     hours,
+//     favorite,
+//     about,
+//     latitude,
+//     longitude,
+//     full_address,
+//     location_detail,
+//     preparation,
+//     donationAmount,
+//     available_dates,
+//     restrictions,
+//     suitable_for,
+//     services,
+//     highlights,
+//     duration,
+//     segments,
+//   } = req.body;
+
+//   // Find the opportunity by ID
+//   const opportunity = await OpportunityList.findByPk(id);
+
+//   // If the opportunity is not found, return an error
+//   if (!opportunity) {
+//     return res.status(404).json({
+//       status: "fail",
+//       message: `Opportunity with ID ${id} not found.`,
+//     });
+//   }
+
+//   // Update the opportunity with new values
+//   const updatedOpportunity = await opportunity.update({
+//     date_time,
+//     image_path,
+//     title,
+//     category,
+//     background_check,
+//     minimum_participants,
+//     maximum_participants,
+//     partner_cohost_group,
+//     impact_reporting,
+//     waiver,
+//     assigned_managers,
+//     cancellation_policy,
+//     opportunity_recurring,
+//     listing_status,
+//     prepare_plane_description,
+//     opportunity_access,
+//     description,
+//     hours,
+//     favorite,
+//     about,
+//     latitude,
+//     longitude,
+//     full_address,
+//     location_detail,
+//     preparation,
+//     donationAmount,
+//     available_dates,
+//     restrictions,
+//     suitable_for,
+//     services,
+//     highlights,
+//     duration,
+//     segments,
+//   });
+
+//   // Respond with success
+//   res.status(200).json({
+//     status: "success",
+//     message: "Opportunity updated successfully.",
+//     data: updatedOpportunity,
+//   });
+// });
 
 exports.updateOpportunityList = catchAsync(async (req, res, next) => {
   const { id } = req.params;
@@ -283,47 +332,9 @@ exports.updateOpportunityList = catchAsync(async (req, res, next) => {
     });
   }
 
-  // Extract the data to be updated
-  const {
-    date_time,
-    image_path,
-    title,
-    category,
-    background_check,
-    minimum_participants,
-    maximum_participants,
-    partner_cohost_group,
-    impact_reporting,
-    waiver,
-    assigned_managers,
-    cancellation_policy,
-    opportunity_recurring,
-    listing_status,
-    prepare_plane_description,
-    opportunity_access,
-    description,
-    hours,
-    favorite,
-    about,
-    latitude,
-    longitude,
-    full_address,
-    location_detail,
-    preparation,
-    donationAmount,
-    available_dates,
-    restrictions,
-    suitable_for,
-    services,
-    highlights,
-    duration,
-    segments,
-  } = req.body;
-
   // Find the opportunity by ID
   const opportunity = await OpportunityList.findByPk(id);
 
-  // If the opportunity is not found, return an error
   if (!opportunity) {
     return res.status(404).json({
       status: "fail",
@@ -331,42 +342,50 @@ exports.updateOpportunityList = catchAsync(async (req, res, next) => {
     });
   }
 
-  // Update the opportunity with new values
-  const updatedOpportunity = await opportunity.update({
-    date_time,
-    image_path,
-    title,
-    category,
-    background_check,
-    minimum_participants,
-    maximum_participants,
-    partner_cohost_group,
-    impact_reporting,
-    waiver,
-    assigned_managers,
-    cancellation_policy,
-    opportunity_recurring,
-    listing_status,
-    prepare_plane_description,
-    opportunity_access,
-    description,
-    hours,
-    favorite,
-    about,
-    latitude,
-    longitude,
-    full_address,
-    location_detail,
-    preparation,
-    donationAmount,
-    available_dates,
-    restrictions,
-    suitable_for,
-    services,
-    highlights,
-    duration,
-    segments,
-  });
+  // Extract fields that need to be updated
+  const updates = req.body;
+
+  // Process file uploads
+  let imageUrls = opportunity.image_path || []; // Keep existing images if no new images are uploaded
+  let waiverUrl = opportunity.waiver || ""; // Keep existing waiver if not updated
+
+  if (req.files) {
+    // Handle image uploads (append new images to existing ones)
+    if (req.files.images && req.files.images.length > 0) {
+      const uploadedImages = await Promise.all(
+        req.files.images.map(async (file) => {
+          const fileName = `${Date.now()}-${file.originalname}`;
+          return await uploadToCloudinary(file.buffer, fileName); // Upload image to Cloudinary
+        })
+      );
+      imageUrls = [...imageUrls, ...uploadedImages]; // Append new images to the existing ones
+    }
+
+    // Handle waiver upload
+    if (req.files.waiver && req.files.waiver.length > 0) {
+      const waiverFile = req.files.waiver[0];
+      const waiverFileName = `${Date.now()}-${waiverFile.originalname}`;
+      waiverUrl = await uploadToCloudinary(waiverFile.buffer, waiverFileName); // Upload waiver
+    }
+  }
+
+  // Add files to update payload
+  if (imageUrls.length > 0) {
+    updates.image_path = imageUrls; // Ensure image_path is always updated if there are new images
+  }
+  if (waiverUrl) {
+    updates.waiver = waiverUrl;
+  }
+
+  // Filter out undefined or null values
+  const filteredUpdates = Object.fromEntries(
+    Object.entries(updates).filter(
+      ([_, value]) => value !== undefined && value !== null
+    )
+  );
+
+  // Update opportunity with filtered fields
+  const updatedOpportunity = await opportunity.update(filteredUpdates);
 
   // Respond with success
   res.status(200).json({
@@ -927,11 +946,11 @@ exports.getFilteredOpportunities = cathAsync(async (req, res, next) => {
 exports.getOpportunitiesByUserAndAccountType = cathAsync(
   async (req, res, next) => {
     const { user_id, accountType } = req.query;
-    const { page = 1, limit = 10 } = req.query; // Default to page 1 and 10 items per page
+    const { page = 1, limit = 10 } = req.query;
 
     // Validate query parameters
-    if (!user_id || !accountType) {
-      return next(new appError("user_id and accountType are required", 400));
+    if (!user_id) {
+      return next(new appError("user_id is required", 400));
     }
 
     const pageNumber = parseInt(page, 10);
@@ -953,7 +972,7 @@ exports.getOpportunitiesByUserAndAccountType = cathAsync(
 
     // Query the database with filtering and pagination
     const { count, rows } = await OpportunityList.findAndCountAll({
-      where: { user_id, accountType },
+      where: { user_id },
       offset,
       limit: pageSize,
       order: [["createdAt", "DESC"]],

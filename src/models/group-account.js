@@ -1,14 +1,14 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/db");
-
+const { v4: uuidv4 } = require("uuid");
 const GroupAccount = sequelize.define(
   "GroupAccount",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING, // Use string type for UUID
       primaryKey: true,
-      autoIncrement: true,
       allowNull: false,
+      defaultValue: () => `group-${uuidv4()}`,
     },
     groupName: {
       type: DataTypes.STRING,

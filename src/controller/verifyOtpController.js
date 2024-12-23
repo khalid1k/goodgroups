@@ -23,6 +23,7 @@ const createSendToken = (user, statusCode, res, accountType) => {
   res.status(statusCode).json({
     message: "success",
     token,
+    userId: user.id,
     accountType,
   });
 };

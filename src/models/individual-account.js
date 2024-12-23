@@ -1,14 +1,14 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/db");
-
+const { v4: uuidv4 } = require("uuid");
 const IndividualUser = sequelize.define(
   "IndividualUser",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING, // Use string type for UUID
       primaryKey: true,
-      autoIncrement: true,
       allowNull: false,
+      defaultValue: () => `individual-${uuidv4()}`,
     },
     fullName: {
       type: DataTypes.STRING,
@@ -27,10 +27,6 @@ const IndividualUser = sequelize.define(
         isEmail: true,
       },
     },
-    // password: {
-    //   type: DataTypes.STRING,
-    //   allowNull: false,
-    // },
     birthday: {
       type: DataTypes.DATEONLY,
       allowNull: false,
@@ -55,14 +51,6 @@ const IndividualUser = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
-    // passwordResetToken: {
-    //   type: DataTypes.STRING,
-    //   allowNull: true,
-    // },
-    // passwordResetExpires: {
-    //   type: DataTypes.DATE,
-    //   allowNull: true,
-    // },
   },
   {
     timestamps: true,
