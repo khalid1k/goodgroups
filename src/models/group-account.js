@@ -27,10 +27,7 @@ const GroupAccount = sequelize.define(
         isEmail: true,
       },
     },
-    // password: {
-    //   type: DataTypes.STRING,
-    //   allowNull: false,
-    // },
+
     groupType: {
       type: DataTypes.ENUM("Company", "Faith Organization", "School", "Cause"),
       allowNull: false,
@@ -51,14 +48,20 @@ const GroupAccount = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
-    // passwordResetToken: {
-    //   type: DataTypes.STRING,
-    //   allowNull: true,
-    // },
-    // passwordResetExpires: {
-    //   type: DataTypes.DATE,
-    //   allowNull: true,
-    // },
+    mission: {
+      type: DataTypes.STRING,
+      defaultValue:
+        "Our Mission is to help homeless individuals in Southern California.",
+    },
+    hours: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    photo: {
+      type: DataTypes.STRING,
+      defaultValue:
+        "https://media.istockphoto.com/id/1386479313/photo/happy-millennial-afro-american-business-woman-posing-isolated-on-white.jpg?b=1&s=612x612&w=0&k=20&c=MsKXmwf7TDRdKRn_lHohhmD5rvVvnGs9ry0xl6CrMT4=",
+    },
   },
   {
     timestamps: true,

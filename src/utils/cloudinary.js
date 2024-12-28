@@ -8,7 +8,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB file size limit
 }).fields([
-  { name: "images", maxCount: 5 }, // Accepts up to 5 files with the key "images"
+  { name: "images", maxCount: 15 }, // Accepts up to 5 files with the key "images"
   { name: "waiver", maxCount: 1 }, // Accepts 1 file with the key "waiver"
 ]);
 
@@ -44,7 +44,7 @@ const uploadToCloudinary = async (fileBuffer, fileName) => {
     return result.secure_url; // Return the secure URL of the uploaded image
   } catch (error) {
     console.error("Cloudinary Upload Error:", error);
-    throw error;
+    return error;
   }
 };
 

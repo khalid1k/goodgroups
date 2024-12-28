@@ -10,21 +10,22 @@ const { uploadToCloudinary } = require("../utils/cloudinary");
 const IndividualUser = require("../models/individual-account");
 const GroupAccount = require("../models/group-account");
 const { identifyUserType } = require("../utils/userUtills");
-
+const { jsonrepair } = require("jsonrepair");
 exports.createOpportunityList = catchAsync(async (req, res, next) => {
   const parseIfArrayOrObject = (value) => {
     if (value == null) return value; // Handle null or undefined
 
-    // Handle array-like string
+    // Handle empty array case explicitly
+    if (typeof value === "string" && value === "[]") {
+      return []; // Return empty array when the value is "[]"
+    }
+
+    // Handle array-like string (non-empty arrays)
     if (
       typeof value === "string" &&
       value.startsWith("[") &&
       value.endsWith("]")
     ) {
-      if (value === "[]") {
-        return [];
-      }
-
       // Match items inside brackets, split by commas
       const items = value.match(/[^,\[\]]+/g);
       if (items) {
@@ -47,7 +48,7 @@ exports.createOpportunityList = catchAsync(async (req, res, next) => {
       try {
         return JSON.parse(value); // Parse valid JSON objects
       } catch (e) {
-        return value;
+        return value; // If parsing fails, return the original string
       }
     }
 
@@ -59,37 +60,42 @@ exports.createOpportunityList = catchAsync(async (req, res, next) => {
   Object.keys(data).forEach((key) => {
     data[key] = parseIfArrayOrObject(data[key]);
   });
+
   console.log("data values are ", data);
 
   const {
-    user_id,
-    date_time,
-    title,
-    category,
-    background_check,
-    minimum_participants,
-    maximum_participants,
-    partner_cohost_group,
-    impact_reporting,
-    assigned_managers,
-    cancellation_policy,
-    opportunity_recurring,
-    prepare_plane_description,
-    opportunity_access,
+    userId,
+    date,
+    opportunityTitle,
+    opportunityType,
+    backgroundCheck,
+    minParticipants,
+    maxParticipants,
+    opportunityPartner,
+    impact,
+    assignedManagers,
+    cancellationPolicy,
+    recurring,
+    howToPrepare,
+    opportunityAccess,
     description,
-    hours,
     favorite,
     latitude,
     longitude,
-    full_address,
-    location_detail,
+    fullAddress,
+    locationDetails,
     donationAmount,
-    available_dates,
-    suitable_for,
+    availableDates,
+    participantTypes,
     services,
-    highlights,
+    participantHighlights,
     duration,
-    segments,
+    restrictions,
+    subSegment,
+    topSegment,
+    waiverType,
+    showLocation,
+    adminSuggestion,
   } = data;
 
   // console.log("request files are ", req.files);
@@ -115,88 +121,98 @@ exports.createOpportunityList = catchAsync(async (req, res, next) => {
   }
 
   // 3. Fetch user by accountType
-  let accountType = identifyUserType(user_id);
+  let accountType = identifyUserType(userId);
 
   let user;
   if (accountType === "IndividualUser") {
-    user = await IndividualUser.findByPk(user_id);
+    user = await IndividualUser.findByPk(userId);
   } else if (accountType === "GroupAccount") {
-    user = await GroupAccount.findByPk(user_id);
+    user = await GroupAccount.findByPk(userId);
   }
 
   if (!user) {
-    return next(new appError("Invalid user_id ", 400));
+    return next(new appError("Invalid userId ", 400));
   }
 
   // 4. Prepare data to save
   const opportunityData = {
-    user_id,
-    date_time,
-    image_path: imageUrls,
+    userId,
+    date,
+    images: imageUrls,
     waiver: waiverUrl,
-    title,
-    category,
-    background_check,
-    minimum_participants,
-    maximum_participants,
-    partner_cohost_group,
-    impact_reporting,
-    assigned_managers,
-    cancellation_policy,
-    opportunity_recurring,
-    prepare_plane_description,
-    opportunity_access,
+    opportunityTitle,
+    opportunityType,
+    backgroundCheck,
+    minParticipants,
+    maxParticipants,
+    opportunityPartner,
+    impact,
+    // assignedManagers,
+    cancellationPolicy,
+    recurring,
+    howToPrepare,
+    opportunityAccess,
     description,
-    hours,
     favorite,
     latitude,
     longitude,
-    full_address,
-    location_detail,
+    fullAddress,
+    locationDetails,
     donationAmount,
-    available_dates,
-    suitable_for,
+    availableDates,
+    participantTypes,
     services,
-    highlights,
+    participantHighlights,
     duration,
-    segments,
+    restrictions,
+    subSegment,
+    topSegment,
+    waiverType,
+    showLocation,
+    adminSuggestion,
   };
 
   // 5. Filter out undefined values
+  // const filteredData = Object.fromEntries(
+  //   Object.entries(opportunityData).filter(([_, value]) => value !== undefined)
+  // );
   const filteredData = Object.fromEntries(
-    Object.entries(opportunityData).filter(([_, value]) => value !== undefined)
+    Object.entries(opportunityData).filter(
+      ([_, value]) =>
+        value !== undefined &&
+        value !== null &&
+        !(Array.isArray(value) && value.length === 0) &&
+        !(typeof value === "object" && Object.keys(value).length === 0) &&
+        value !== ""
+    )
   );
-
   // 6. Check completeness for listing_status
   const requiredFields = [
-    "date_time",
-    "image_path",
-    "waiver", // Include waiver in required fields
-    "title",
-    "category",
-    "background_check",
-    "minimum_participants",
-    "maximum_participants",
-    "partner_cohost_group",
-    "impact_reporting",
-    "assigned_managers",
-    "cancellation_policy",
-    "prepare_plane_description",
-    "opportunity_access",
+    "userId",
+    "date",
+    "opportunityTitle",
+    "opportunityType",
+    "backgroundCheck",
+    "minParticipants",
+    "maxParticipants",
+    "impact",
+    "cancellationPolicy",
+    "recurring",
+    "howToPrepare",
+    "opportunityAccess",
     "description",
-    "hours",
     "favorite",
     "latitude",
     "longitude",
-    "full_address",
-    "location_detail",
+    "fullAddress",
     "donationAmount",
-    "available_dates",
-    "suitable_for",
+    "participantTypes",
     "services",
-    "highlights",
+    "participantHighlights",
     "duration",
-    "segments",
+    "subSegment",
+    "topSegment",
+    "waiverType",
   ];
 
   const isComplete = requiredFields.every((field) =>
@@ -206,7 +222,7 @@ exports.createOpportunityList = catchAsync(async (req, res, next) => {
     (field) => !filteredData.hasOwnProperty(field)
   );
   console.log("Missing Fields: ", missingFields);
-  filteredData.listing_status = isComplete ? "published" : "inprogress";
+  filteredData.listingStatus = isComplete ? "published" : "inprogress";
   console.log("filter data is ", filteredData);
   // 7. Save to database
   const newOpportunity = await OpportunityList.create(filteredData);
@@ -216,110 +232,6 @@ exports.createOpportunityList = catchAsync(async (req, res, next) => {
     data: newOpportunity,
   });
 });
-
-// exports.updateOpportunityList = catchAsync(async (req, res, next) => {
-//   const { id } = req.params;
-
-//   // Ensure the ID is provided
-//   if (!id) {
-//     return res.status(400).json({
-//       status: "fail",
-//       message: "Opportunity ID is required for updating.",
-//     });
-//   }
-
-//   // Extract the data to be updated
-//   const {
-//     date_time,
-//     image_path,
-//     title,
-//     category,
-//     background_check,
-//     minimum_participants,
-//     maximum_participants,
-//     partner_cohost_group,
-//     impact_reporting,
-//     waiver,
-//     assigned_managers,
-//     cancellation_policy,
-//     opportunity_recurring,
-//     listing_status,
-//     prepare_plane_description,
-//     opportunity_access,
-//     description,
-//     hours,
-//     favorite,
-//     about,
-//     latitude,
-//     longitude,
-//     full_address,
-//     location_detail,
-//     preparation,
-//     donationAmount,
-//     available_dates,
-//     restrictions,
-//     suitable_for,
-//     services,
-//     highlights,
-//     duration,
-//     segments,
-//   } = req.body;
-
-//   // Find the opportunity by ID
-//   const opportunity = await OpportunityList.findByPk(id);
-
-//   // If the opportunity is not found, return an error
-//   if (!opportunity) {
-//     return res.status(404).json({
-//       status: "fail",
-//       message: `Opportunity with ID ${id} not found.`,
-//     });
-//   }
-
-//   // Update the opportunity with new values
-//   const updatedOpportunity = await opportunity.update({
-//     date_time,
-//     image_path,
-//     title,
-//     category,
-//     background_check,
-//     minimum_participants,
-//     maximum_participants,
-//     partner_cohost_group,
-//     impact_reporting,
-//     waiver,
-//     assigned_managers,
-//     cancellation_policy,
-//     opportunity_recurring,
-//     listing_status,
-//     prepare_plane_description,
-//     opportunity_access,
-//     description,
-//     hours,
-//     favorite,
-//     about,
-//     latitude,
-//     longitude,
-//     full_address,
-//     location_detail,
-//     preparation,
-//     donationAmount,
-//     available_dates,
-//     restrictions,
-//     suitable_for,
-//     services,
-//     highlights,
-//     duration,
-//     segments,
-//   });
-
-//   // Respond with success
-//   res.status(200).json({
-//     status: "success",
-//     message: "Opportunity updated successfully.",
-//     data: updatedOpportunity,
-//   });
-// });
 
 exports.updateOpportunityList = catchAsync(async (req, res, next) => {
   const { id } = req.params;
@@ -344,9 +256,9 @@ exports.updateOpportunityList = catchAsync(async (req, res, next) => {
 
   // Extract fields that need to be updated
   const updates = req.body;
-
+  const { newChangedUrls } = req.body;
   // Process file uploads
-  let imageUrls = opportunity.image_path || []; // Keep existing images if no new images are uploaded
+  let imageUrls = opportunity.images || []; // Keep existing images if no new images are uploaded
   let waiverUrl = opportunity.waiver || ""; // Keep existing waiver if not updated
 
   if (req.files) {
@@ -358,7 +270,8 @@ exports.updateOpportunityList = catchAsync(async (req, res, next) => {
           return await uploadToCloudinary(file.buffer, fileName); // Upload image to Cloudinary
         })
       );
-      imageUrls = [...imageUrls, ...uploadedImages]; // Append new images to the existing ones
+      // imageUrls = [...imageUrls, ...uploadedImages];
+      imageUrls = [...newChangedUrls, ...uploadedImages];
     }
 
     // Handle waiver upload
@@ -371,7 +284,7 @@ exports.updateOpportunityList = catchAsync(async (req, res, next) => {
 
   // Add files to update payload
   if (imageUrls.length > 0) {
-    updates.image_path = imageUrls; // Ensure image_path is always updated if there are new images
+    updates.images = imageUrls; // Ensure image_path is always updated if there are new images
   }
   if (waiverUrl) {
     updates.waiver = waiverUrl;
@@ -456,6 +369,23 @@ exports.getAllOpportunities = cathAsync(async (req, res, next) => {
     include: [
       { model: Volunteer, as: "volunteers" },
       { model: Review, as: "all_reviews" },
+      {
+        model: IndividualUser,
+        as: "individualHost",
+        attributes: [
+          "mission",
+          "hours",
+          "fullName",
+          "photo",
+          "username",
+          "email",
+        ],
+      },
+      {
+        model: GroupAccount,
+        as: "groupHost",
+        attributes: ["mission", "hours", "photo", "username", "email"],
+      },
     ],
   });
 
@@ -471,9 +401,11 @@ exports.getAllOpportunities = cathAsync(async (req, res, next) => {
       0
     );
     const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+    const host = opportunity.individualHost || opportunity.groupHost || null;
     return {
       ...opportunity.toJSON(), // Convert Sequelize instance to plain object
       average_rating: averageRating.toFixed(2),
+      host,
     };
   });
 
@@ -530,12 +462,30 @@ exports.getFavoriteOpportunities = cathAsync(async (req, res, next) => {
     include: [
       { model: Volunteer, as: "volunteers" },
       { model: Review, as: "all_reviews" },
+      {
+        model: IndividualUser,
+        as: "individualHost",
+        attributes: [
+          "mission",
+          "hours",
+          "fullName",
+          "photo",
+          "username",
+          "email",
+        ],
+      },
+      {
+        model: GroupAccount,
+        as: "groupHost",
+        attributes: ["mission", "hours", "photo", "username", "email"],
+      },
     ],
   });
 
   if (!rows || rows.length === 0) {
     return next(new appError("No favorite opportunities found", 404));
   }
+  const host = opportunity.individualHost || opportunity.groupHost || null;
 
   const opportunitiesWithRatings = rows.map((opportunity) => {
     const reviews = opportunity.all_reviews || [];
@@ -547,6 +497,7 @@ exports.getFavoriteOpportunities = cathAsync(async (req, res, next) => {
     return {
       ...opportunity.toJSON(),
       average_rating: averageRating.toFixed(2),
+      host,
     };
   });
 
@@ -635,6 +586,23 @@ exports.getOpportunitiesByDistance = cathAsync(async (req, res, next) => {
     include: [
       { model: Volunteer, as: "volunteers" },
       { model: Review, as: "all_reviews" },
+      {
+        model: IndividualUser,
+        as: "individualHost",
+        attributes: [
+          "mission",
+          "hours",
+          "fullName",
+          "photo",
+          "username",
+          "email",
+        ],
+      },
+      {
+        model: GroupAccount,
+        as: "groupHost",
+        attributes: ["mission", "hours", "photo", "username", "email"],
+      },
     ],
     order: [["createdAt", "DESC"]],
   });
@@ -647,10 +615,11 @@ exports.getOpportunitiesByDistance = cathAsync(async (req, res, next) => {
       0
     );
     const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
-
+    const host = opportunity.individualHost || opportunity.groupHost || null;
     return {
       ...opportunity.toJSON(),
       average_rating: averageRating.toFixed(2),
+      host,
     };
   });
 
@@ -667,7 +636,7 @@ exports.getOpportunitiesByDistance = cathAsync(async (req, res, next) => {
 });
 
 exports.getOpportunitiesBySegments = cathAsync(async (req, res, next) => {
-  const { page = 1, limit = 10, segmentKey } = req.query;
+  const { page = 1, limit = 10, subSegment, topSegment } = req.query;
   const pageNumber = parseInt(page, 10);
   const pageSize = parseInt(limit, 10);
 
@@ -680,25 +649,21 @@ exports.getOpportunitiesBySegments = cathAsync(async (req, res, next) => {
     return next(new appError("Page and limit must be positive integers", 400));
   }
 
-  if (!segmentKey || typeof segmentKey !== "string") {
+  if (!topSegment || !subSegment) {
     return next(
-      new appError("Segment key is required and must be a valid string", 400)
+      new appError("topSegment or subSegment values are required", 400)
     );
   }
+  const filters = {};
+  if (topSegment) filters.topSegment = topSegment;
+  if (subSegment) filters.subSegment = subSegment;
 
   // Pagination offset
   const offset = (pageNumber - 1) * pageSize;
 
   // Query database with dynamic key filter and pagination
   const { count, rows } = await OpportunityList.findAndCountAll({
-    where: {
-      // Check if the segmentKey exists as a key in the segments JSON object
-      segments: {
-        [Op.contains]: {
-          [segmentKey]: [], // Matches any value for the key
-        },
-      },
-    },
+    where: filters,
     offset,
     limit: pageSize,
     order: [["createdAt", "DESC"]],
@@ -706,6 +671,23 @@ exports.getOpportunitiesBySegments = cathAsync(async (req, res, next) => {
     include: [
       { model: Volunteer, as: "volunteers" },
       { model: Review, as: "all_reviews" },
+      {
+        model: IndividualUser,
+        as: "individualHost",
+        attributes: [
+          "mission",
+          "hours",
+          "fullName",
+          "photo",
+          "username",
+          "email",
+        ],
+      },
+      {
+        model: GroupAccount,
+        as: "groupHost",
+        attributes: ["mission", "hours", "photo", "username", "email"],
+      },
     ],
   });
 
@@ -721,9 +703,11 @@ exports.getOpportunitiesBySegments = cathAsync(async (req, res, next) => {
       0
     );
     const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+    const host = opportunity.individualHost || opportunity.groupHost || null;
     return {
       ...opportunity.toJSON(),
       average_rating: averageRating.toFixed(2),
+      host,
     };
   });
 
@@ -788,6 +772,23 @@ exports.getOpportunitiesByTime = cathAsync(async (req, res, next) => {
     include: [
       { model: Volunteer, as: "volunteers" },
       { model: Review, as: "all_reviews" },
+      {
+        model: IndividualUser,
+        as: "individualHost",
+        attributes: [
+          "mission",
+          "hours",
+          "fullName",
+          "photo",
+          "username",
+          "email",
+        ],
+      },
+      {
+        model: GroupAccount,
+        as: "groupHost",
+        attributes: ["mission", "hours", "photo", "username", "email"],
+      },
     ],
   });
 
@@ -803,9 +804,11 @@ exports.getOpportunitiesByTime = cathAsync(async (req, res, next) => {
       0
     );
     const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+    const host = opportunity.individualHost || opportunity.groupHost || null;
     return {
       ...opportunity.toJSON(), // Convert Sequelize instance to plain object
       average_rating: averageRating.toFixed(2),
+      host,
     };
   });
 
@@ -818,26 +821,22 @@ exports.getOpportunitiesByTime = cathAsync(async (req, res, next) => {
   });
 });
 
-exports.getFilteredOpportunities = cathAsync(async (req, res, next) => {
+exports.getFilteredOpportunities = catchAsync(async (req, res, next) => {
   const {
     page = 1,
     limit = 10,
-    segments,
-    suitable_for,
+    topSegment,
+    subSegment,
+    participantTypes,
     services,
-    highlights,
-    donation,
+    participantHighlights,
+    donationAmount,
   } = req.query;
 
-  const pageNumber = parseInt(page, 10);
-  const pageSize = parseInt(limit, 10);
+  const pageNumber = parseInt(page, 10) || 1;
+  const pageSize = parseInt(limit, 10) || 10;
 
-  if (
-    isNaN(pageNumber) ||
-    isNaN(pageSize) ||
-    pageNumber <= 0 ||
-    pageSize <= 0
-  ) {
+  if (pageNumber <= 0 || pageSize <= 0) {
     return next(
       new appError("Page and limit must be valid positive integers", 400)
     );
@@ -845,53 +844,52 @@ exports.getFilteredOpportunities = cathAsync(async (req, res, next) => {
 
   const filters = {};
 
-  if (segments) {
-    const segmentValues = segments.split(",").map((value) => value.trim());
-
-    filters[Op.or] = segmentValues.map((value) => ({
-      segments: {
-        [Op.contains]: sequelize.cast(
-          JSON.stringify({ [Op.any]: value }),
-          "jsonb"
-        ),
-      },
-    }));
+  // Top and Sub Segments Filtering
+  if (topSegment || subSegment) {
+    filters[Op.and] = [];
+    if (topSegment) {
+      filters[Op.and].push({ topSegment });
+    }
+    if (subSegment) {
+      filters[Op.and].push({ subSegment });
+    }
   }
 
-  // Suitable for filter
-  if (suitable_for) {
-    const suitableForArray = suitable_for.split(",");
-    filters.suitable_for = { [Op.contains]: suitableForArray };
+  // Participant Types Filter
+  if (participantTypes) {
+    const suitableForArray = Array.isArray(participantTypes)
+      ? participantTypes
+      : participantTypes.split(",");
+    filters.participantTypes = {
+      [Op.overlap]: suitableForArray,
+    };
   }
 
-  // Services filter
+  // Services Filter
   if (services) {
-    const serviceArray = services.split(",");
+    const serviceArray = Array.isArray(services)
+      ? services
+      : services.split(",");
     filters.services = {
-      [Op.or]: serviceArray.map((service) => ({
-        [Op.contains]: [{ text: service }],
-      })),
+      [Op.overlap]: serviceArray,
     };
   }
 
-  // Highlights filter
-  if (highlights) {
-    const highlightArray = highlights.split(",");
-    filters.highlights = {
-      [Op.or]: highlightArray.map((highlight) => ({
-        [Op.contains]: [{ text: highlight }],
-      })),
+  if (participantHighlights) {
+    const highlightArray = Array.isArray(participantHighlights)
+      ? participantHighlights
+      : participantHighlights.split(",");
+    filters.participantHighlights = {
+      [Op.overlap]: highlightArray,
     };
   }
 
-  // Updated donation filter logic
-  if (donation) {
-    const donationValue = parseInt(donation, 10);
+  // Donation Amount Filter
+  if (donationAmount) {
+    const donationValue = parseInt(donationAmount, 10);
     if (donationValue === 1) {
-      // Include records with any donation amount except 0
       filters.donationAmount = { [Op.gt]: 0 };
     } else if (donationValue === 0) {
-      // Include records with donation amount equal to 0
       filters.donationAmount = 0;
     } else {
       return next(new appError("Donation must be 0 or 1", 400));
@@ -900,7 +898,7 @@ exports.getFilteredOpportunities = cathAsync(async (req, res, next) => {
 
   const offset = (pageNumber - 1) * pageSize;
 
-  // Query database with filters
+  // Query the database with filters and pagination
   const { count, rows } = await OpportunityList.findAndCountAll({
     where: filters,
     offset,
@@ -910,27 +908,48 @@ exports.getFilteredOpportunities = cathAsync(async (req, res, next) => {
     include: [
       { model: Volunteer, as: "volunteers" },
       { model: Review, as: "all_reviews" },
+      {
+        model: IndividualUser,
+        as: "individualHost",
+        attributes: [
+          "mission",
+          "hours",
+          "fullName",
+          "photo",
+          "username",
+          "email",
+        ],
+      },
+      {
+        model: GroupAccount,
+        as: "groupHost",
+        attributes: ["mission", "hours", "photo", "username", "email"],
+      },
     ],
   });
 
-  if (!rows || rows.length === 0) {
+  if (!rows.length) {
     return next(
       new appError("No opportunities found matching the criteria", 404)
     );
   }
 
-  // Calculate average ratings
+  // Calculate average ratings for each opportunity
   const opportunities = rows.map((opportunity) => {
     const reviews = opportunity.all_reviews || [];
     const totalRating = reviews.reduce(
       (sum, review) => sum + review.rating_count,
       0
     );
-    const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+    const averageRating = reviews.length
+      ? (totalRating / reviews.length).toFixed(2)
+      : "0.00";
+    const host = opportunity.individualHost || opportunity.groupHost || null;
 
     return {
       ...opportunity.toJSON(),
-      average_rating: averageRating.toFixed(2),
+      average_rating: averageRating,
+      host,
     };
   });
 
@@ -945,12 +964,12 @@ exports.getFilteredOpportunities = cathAsync(async (req, res, next) => {
 
 exports.getOpportunitiesByUserAndAccountType = cathAsync(
   async (req, res, next) => {
-    const { user_id, accountType } = req.query;
+    const { userId } = req.query;
     const { page = 1, limit = 10 } = req.query;
 
     // Validate query parameters
-    if (!user_id) {
-      return next(new appError("user_id is required", 400));
+    if (!userId) {
+      return next(new appError("userId is required", 400));
     }
 
     const pageNumber = parseInt(page, 10);
@@ -972,7 +991,7 @@ exports.getOpportunitiesByUserAndAccountType = cathAsync(
 
     // Query the database with filtering and pagination
     const { count, rows } = await OpportunityList.findAndCountAll({
-      where: { user_id },
+      where: { userId },
       offset,
       limit: pageSize,
       order: [["createdAt", "DESC"]],
@@ -980,6 +999,18 @@ exports.getOpportunitiesByUserAndAccountType = cathAsync(
       include: [
         { model: Volunteer, as: "volunteers" },
         { model: Review, as: "all_reviews" },
+        {
+          model: identifyUserType(userId) ? IndividualUser : GroupAccount,
+          as: "host",
+          attributes: [
+            "mission",
+            "hours",
+            "fullName",
+            "photo",
+            "username",
+            "email",
+          ],
+        },
       ],
     });
 

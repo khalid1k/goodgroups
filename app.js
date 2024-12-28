@@ -35,7 +35,6 @@ app.use(express.static("src/public"));
 app.set("view engine", "pug");
 app.set("views", path.join(__dirname, "src", "views")); // Folder for Pug files
 app.use(express.urlencoded({ extended: true }));
-
 app.use(socialAuthRoutes);
 app.use("/user", userRoutes);
 app.use("/otp", otpRoute);
@@ -59,7 +58,6 @@ app.listen(PORT, async () => {
   try {
     await sequelize.sync({ alter: true }); // Use { force: true } to drop and recreate tables
     console.log("Database synced!");
-    // await createOpportunityListData();
   } catch (error) {
     console.error("Error syncing database:", error);
   }

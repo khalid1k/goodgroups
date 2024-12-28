@@ -35,6 +35,20 @@ const IndividualUser = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    mission: {
+      type: DataTypes.STRING,
+      defaultValue:
+        "Our Mission is to help homeless individuals in Southern California.",
+    },
+    hours: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    photo: {
+      type: DataTypes.STRING,
+      defaultValue:
+        "https://media.istockphoto.com/id/1386479313/photo/happy-millennial-afro-american-business-woman-posing-isolated-on-white.jpg?b=1&s=612x612&w=0&k=20&c=MsKXmwf7TDRdKRn_lHohhmD5rvVvnGs9ry0xl6CrMT4=",
+    },
     referralCode: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -50,6 +64,12 @@ const IndividualUser = sequelize.define(
     isVerified: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
+    },
+    about: {
+      type: DataTypes.TEXT,
+    },
+    languages: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
     },
   },
   {

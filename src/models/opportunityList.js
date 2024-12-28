@@ -1,8 +1,9 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/db");
 const Review = require("./review");
-
+const GroupAccount = require("./group-account");
 const Volunteer = require("./volunteer");
+const IndividualUser = require("./individual-account");
 
 const OpportunityList = sequelize.define(
   "OpportunityList",
@@ -13,62 +14,67 @@ const OpportunityList = sequelize.define(
       primaryKey: true,
       allowNull: false,
     },
-    user_id: {
+    userId: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    date_time: { type: DataTypes.BIGINT },
-    image_path: { type: DataTypes.ARRAY(DataTypes.STRING) },
-    title: { type: DataTypes.STRING },
-    category: {
+    date: { type: DataTypes.BIGINT },
+    images: { type: DataTypes.ARRAY(DataTypes.STRING) },
+    opportunityTitle: { type: DataTypes.STRING },
+    opportunityType: {
       type: DataTypes.ENUM("In-person", "Online", "Skills-based"),
       defaultValue: "In-person",
     },
-    background_check: {
+    backgroundCheck: {
       type: DataTypes.STRING,
       defaultValue: "no",
     },
-    minimum_participants: { type: DataTypes.INTEGER },
-    maximum_participants: { type: DataTypes.INTEGER },
-    partner_cohost_group: { type: DataTypes.STRING },
-    impact_reporting: { type: DataTypes.STRING },
+    minParticipants: { type: DataTypes.INTEGER },
+    maxParticipants: { type: DataTypes.INTEGER },
     waiver: { type: DataTypes.STRING },
-    assigned_managers: { type: DataTypes.ARRAY(DataTypes.STRING) },
-    cancellation_policy: {
+    assignedManagers: { type: DataTypes.ARRAY(DataTypes.JSONB) },
+    cancellationPolicy: {
       type: DataTypes.ENUM("Flexible", "Moderate", "Super Strict"),
       defaultValue: "Flexible",
     },
 
-    listing_status: { type: DataTypes.ENUM("published", "inprogress") },
-    prepare_plane_description: { type: DataTypes.TEXT },
-    opportunity_access: {
+    listingStatus: { type: DataTypes.ENUM("published", "inprogress") },
+    howToPrepare: { type: DataTypes.TEXT },
+    opportunityAccess: {
       type: DataTypes.ENUM("Public", "Private"),
       defaultValue: "Public",
     },
     description: { type: DataTypes.TEXT },
-    hours: { type: DataTypes.INTEGER },
     favorite: { type: DataTypes.BOOLEAN, defaultValue: false },
-    latitude: { type: DataTypes.FLOAT },
-    longitude: { type: DataTypes.FLOAT },
-    full_address: {
+    latitude: { type: DataTypes.FLOAT, defaultValue: 37.028933 },
+    longitude: { type: DataTypes.FLOAT, defaultValue: -119.428072 },
+    fullAddress: {
       type: DataTypes.JSONB,
       defaultValue: {},
     },
-    location_detail: { type: DataTypes.TEXT },
+    locationDetails: { type: DataTypes.TEXT },
     donationAmount: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
-    available_dates: {
+    availableDates: {
       type: DataTypes.ARRAY(DataTypes.BIGINT),
+      defaultValue: [],
     },
 
-    suitable_for: { type: DataTypes.ARRAY(DataTypes.STRING) },
+    participantTypes: { type: DataTypes.ARRAY(DataTypes.STRING) },
     services: {
       type: DataTypes.ARRAY(DataTypes.STRING),
     },
-    highlights: {
+    participantHighlights: {
       type: DataTypes.ARRAY(DataTypes.STRING),
+    },
+    restrictions: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+    },
+    adminSuggestion: {
+      type: DataTypes.STRING,
+      defaultValue: "Recommended",
     },
     duration: {
       type: DataTypes.ARRAY(DataTypes.BIGINT),
@@ -85,19 +91,68 @@ const OpportunityList = sequelize.define(
         },
       },
     },
-    segments: {
+    subSegment: {
+      type: DataTypes.STRING,
+    },
+    topSegment: {
+      type: DataTypes.STRING,
+    },
+    recurring: {
+      type: DataTypes.STRING,
+    },
+    opportunityPartner: {
       type: DataTypes.JSONB,
       defaultValue: {},
+    },
+    waiverType: {
+      type: DataTypes.STRING,
+    },
+    showLocation: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    impact: {
+      type: DataTypes.STRING,
     },
   },
   {
     tableName: "OpportunityList",
   }
 );
+IndividualUser.hasMany(OpportunityList, {
+  foreignKey: "userId",
+  constraints: false,
+  scope: { accountType: "IndividualUser" },
+});
+// OpportunityList.belongsTo(IndividualUser, {
+//   foreignKey: "userId",
+//   constraints: false,
+// });
+OpportunityList.belongsTo(IndividualUser, {
+  as: "individualHost", // Alias for the host association
+  foreignKey: "userId",
+});
 
+// Define GroupAccount - OpportunityList Relationship
+GroupAccount.hasMany(OpportunityList, {
+  foreignKey: "userId",
+  constraints: false,
+  scope: { accountType: "GroupAccount" },
+});
+// OpportunityList.belongsTo(GroupAccount, {
+//   foreignKey: "userId",
+//   constraints: false,
+// });
+OpportunityList.belongsTo(GroupAccount, {
+  as: "groupHost",
+  foreignKey: "userId",
+});
 OpportunityList.hasMany(Volunteer, { as: "volunteers" });
 OpportunityList.hasMany(Review, { as: "all_reviews" });
-
+OpportunityList.belongsTo(IndividualUser, {
+  foreignKey: "userId",
+  as: "host",
+});
 Volunteer.belongsTo(OpportunityList);
 Review.belongsTo(OpportunityList);
 
