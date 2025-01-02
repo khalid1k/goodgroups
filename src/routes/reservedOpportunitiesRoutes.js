@@ -6,5 +6,9 @@ router.post(
   "/Create-reserved-opportunity",
   reservedOpportunityController.createReservedOpportunity
 );
+router.delete(
+  "/cancel-reserved-Opportunity/:id",
+  reservedOpportunityController.deleteReservedOpportunity
+);
 
 module.exports = router;

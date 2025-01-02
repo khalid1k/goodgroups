@@ -5,9 +5,9 @@ const appError = require("../utils/appError");
 const { getUserById } = require("../utils/userUtills");
 // Create a new invitation
 exports.createInvitation = catchAsync(async (req, res, next) => {
-  const { opportunityListId, invitedBy, invitedTo } = req.body;
+  const { opportunityId, invitedBy, invitedTo } = req.body;
 
-  const opportunity = await OpportunityList.findByPk(opportunityListId);
+  const opportunity = await OpportunityList.findByPk(opportunityId);
   if (!opportunity) {
     return next(new appError("Opportunity not found", 404));
   }
@@ -25,7 +25,7 @@ exports.createInvitation = catchAsync(async (req, res, next) => {
 
   // Create the invitation
   const invitation = await Invitation.create({
-    opportunityListId,
+    opportunityId,
     invitedBy,
     invitedTo,
   });
@@ -74,11 +74,11 @@ const getAllInvitations = async (req, res) => {
 
 // Get invitations by opportunity
 const getInvitationsByOpportunity = async (req, res) => {
-  const { opportunityListId } = req.params;
+  const { opportunityId } = req.params;
 
   try {
     const invitations = await Invitation.findAll({
-      where: { opportunityListId },
+      where: { opportunityId },
       include: [{ model: OpportunityList }],
     });
 

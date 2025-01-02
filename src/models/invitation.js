@@ -10,7 +10,7 @@ const Invitation = sequelize.define(
       primaryKey: true,
       allowNull: false,
     },
-    opportunityListId: {
+    opportunityId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {

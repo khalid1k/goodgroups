@@ -26,14 +26,14 @@ const ReservedOpportunityList = require("./opportunityReservation");
 // });
 
 OpportunityList.hasMany(Invitation, {
-  foreignKey: "opportunityListId",
+  foreignKey: "opportunityId",
   onDelete: "CASCADE",
 });
 
 Invitation.belongsTo(OpportunityList, {
-  foreignKey: "opportunityListId",
+  foreignKey: "opportunityId",
 });
 
 ReservedOpportunityList.belongsTo(OpportunityList, {
-  foreignKey: "opportunityListId",
+  foreignKey: "opportunityId",
 });

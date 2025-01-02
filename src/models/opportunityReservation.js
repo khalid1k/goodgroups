@@ -13,7 +13,7 @@ const ReservedOpportunityList = sequelize.define(
       primaryKey: true,
       allowNull: false,
     },
-    opportunityListId: {
+    opportunityId: {
       type: DataTypes.UUID,
       references: {
         model: OpportunityList,
@@ -38,6 +38,10 @@ const ReservedOpportunityList = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    opportunityDate: {
+      type: DataTypes.BIGINT,
+      allowNull: false,
+    },
   },
   {
     tableName: "ReservedOpportunityList",
@@ -46,7 +50,7 @@ const ReservedOpportunityList = sequelize.define(
 
 // Associations
 ReservedOpportunityList.belongsTo(OpportunityList, {
-  foreignKey: "opportunityListId",
+  foreignKey: "opportunityId",
 });
 
 // If an IndividualUser reserves the opportunity

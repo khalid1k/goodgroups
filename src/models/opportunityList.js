@@ -32,13 +32,16 @@ const OpportunityList = sequelize.define(
     minParticipants: { type: DataTypes.INTEGER },
     maxParticipants: { type: DataTypes.INTEGER },
     waiver: { type: DataTypes.STRING },
-    assignedManagers: { type: DataTypes.ARRAY(DataTypes.JSONB) },
+    assignedManagers: {
+      type: DataTypes.ARRAY(DataTypes.JSONB),
+      defaultValue: [],
+    },
     cancellationPolicy: {
       type: DataTypes.ENUM("Flexible", "Moderate", "Super Strict"),
       defaultValue: "Flexible",
     },
 
-    listingStatus: { type: DataTypes.ENUM("published", "inprogress") },
+    listingStatus: { type: DataTypes.ENUM("published", "inprogress", "pause") },
     howToPrepare: { type: DataTypes.TEXT },
     opportunityAccess: {
       type: DataTypes.ENUM("Public", "Private"),
@@ -106,6 +109,7 @@ const OpportunityList = sequelize.define(
     },
     waiverType: {
       type: DataTypes.STRING,
+      defaultValue: "goodgroups default waiver",
     },
     showLocation: {
       type: DataTypes.BOOLEAN,
@@ -147,13 +151,21 @@ OpportunityList.belongsTo(GroupAccount, {
   as: "groupHost",
   foreignKey: "userId",
 });
-OpportunityList.hasMany(Volunteer, { as: "volunteers" });
+// OpportunityList.hasMany(Volunteer, { as: "volunteers" });
 OpportunityList.hasMany(Review, { as: "all_reviews" });
 OpportunityList.belongsTo(IndividualUser, {
   foreignKey: "userId",
   as: "host",
 });
-Volunteer.belongsTo(OpportunityList);
+// Volunteer.belongsTo(OpportunityList);
 Review.belongsTo(OpportunityList);
+OpportunityList.hasMany(Volunteer, {
+  foreignKey: "opportunityId",
+  as: "volunteers",
+});
 
+Volunteer.belongsTo(OpportunityList, {
+  foreignKey: "opportunityId",
+  as: "opportunity", // Alias for accessing the opportunity
+});
 module.exports = { OpportunityList };

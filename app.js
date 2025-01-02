@@ -41,7 +41,7 @@ app.use("/otp", otpRoute);
 app.use("/opportunities", opportunitiesRoute);
 app.use("/volunteer", volunteerRoutes);
 app.use("/review", reviewRoutes);
-app.use("/api-v1-reserved-opportunities", reservedOpportunityRoutes);
+app.use("/api/v1/reserved-opportunities", reservedOpportunityRoutes);
 app.use("/api/v1/invitation", invitationRoutes);
 //handle the wrong routes
 app.all("*", (req, res, next) => {

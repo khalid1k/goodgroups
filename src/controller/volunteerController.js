@@ -3,21 +3,20 @@ const { OpportunityList } = require("../models/opportunityList");
 const appError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 exports.createVolunteer = catchAsync(async (req, res, next) => {
-  const { OpportunityListId, name, profile_description, profile_image } =
-    req.body;
+  const { opportunityId, name, profile_description, profile_image } = req.body;
 
   // Validate required fields
-  if (!name || !OpportunityListId) {
+  if (!name || !opportunityId) {
     return next(
       new appError(
-        "Name and OpportunityListId are required to create a volunteer.",
+        "Name and opportunityId are required to create a volunteer.",
         400
       )
     );
   }
 
   // Check if the parent opportunity exists
-  const opportunity = await OpportunityList.findByPk(OpportunityListId);
+  const opportunity = await OpportunityList.findByPk(opportunityId);
   if (!opportunity) {
     return next(
       new appError(
@@ -32,7 +31,7 @@ exports.createVolunteer = catchAsync(async (req, res, next) => {
     name,
     profile_description,
     profile_image,
-    OpportunityListId, // Associate with the parent opportunity
+    opportunityId, // Associate with the parent opportunity
   });
 
   // Respond with success

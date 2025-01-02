@@ -10,6 +10,7 @@ router.post(
 );
 router.put(
   "/update-opportunity-list/:id",
+  upload,
   opportunityListController.updateOpportunityList
 );
 router.delete(
@@ -47,5 +48,9 @@ router.get(
 router.get(
   "/getOpportunitiesByUser",
   opportunityListController.getOpportunitiesByUserAndAccountType
+);
+router.patch(
+  "/change-opportunity-listing-status",
+  opportunityListController.changeOpportunityListingStatus
 );
 module.exports = router;
