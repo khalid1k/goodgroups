@@ -9,6 +9,7 @@ router.post("/forgot-password", authController.forgotPassword);
 router.post("/reset-password/:token", authController.resetPassword);
 router.get("/getRecords", authController.getRecords);
 router.delete("/delete-user/:email", authController.deleteUser);
+router.get("/get-user-with-groups/:userId", authController.getUserWithGroups);
 // Render reset password page
 router.get("/reset-Password/:token", async (req, res, next) => {
   const token = req.params.token;

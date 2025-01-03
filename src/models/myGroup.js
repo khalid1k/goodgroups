@@ -1,5 +1,5 @@
 const { Model, DataTypes } = require("sequelize");
-const sequelize = require("../config/db");
+const { sequelize } = require("../config/db");
 const IndividualUser = require("./individual-account");
 const GroupAccount = require("./group-account");
 
@@ -13,16 +13,16 @@ MyGroup.init(
       primaryKey: true,
     },
     userId: {
-      type: DataTypes.UUID,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     groupId: {
-      type: DataTypes.STRING, // References GroupAccount
+      type: DataTypes.STRING,
       allowNull: false,
     },
     role: {
       type: DataTypes.STRING,
-      defaultValue: "member", // Admin, Member, etc.
+      defaultValue: "member",
     },
   },
   {

@@ -13,6 +13,7 @@ const volunteerRoutes = require("./src/routes/volunteerRoutes");
 const reviewRoutes = require("./src/routes/reviewRoutes");
 const reservedOpportunityRoutes = require("./src/routes/reservedOpportunitiesRoutes");
 const invitationRoutes = require("./src/routes/invitationRoutes");
+const groupRoutes = require("./src/routes/groupRoutes");
 const xss = require("xss-clean");
 const helmet = require("helmet");
 const app = express();
@@ -43,6 +44,7 @@ app.use("/volunteer", volunteerRoutes);
 app.use("/review", reviewRoutes);
 app.use("/api/v1/reserved-opportunities", reservedOpportunityRoutes);
 app.use("/api/v1/invitation", invitationRoutes);
+app.use("/api/v1/groups", groupRoutes);
 //handle the wrong routes
 app.all("*", (req, res, next) => {
   next(new appError(`Can't Find ${req.originalUrl} on this server`, 404));

@@ -21,7 +21,7 @@ const {
   verifyMicrosoftToken,
   verifyGoogleToken,
 } = require("../helpers/socialSigninHelper");
-
+const { identifyUserType } = require("../utils/userUtills");
 // const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.TOKEN_SECRET, {
@@ -529,4 +529,54 @@ exports.protectRoute = catchAsync(async (req, res, next) => {
 
   // Grant access to the route
   next();
+});
+
+//controller to get the users with their groups
+exports.getUserWithGroups = catchAsync(async (req, res, next) => {
+  const { userId } = req.params;
+  if (!userId) {
+    return next(new appError("userId is required", 400));
+  }
+  // Determine if the user is an IndividualUser or GroupAccount
+  const userType = identifyUserType(userId);
+  if (userType === "IndividualUser") {
+    let user = await IndividualUser.findByPk(userId, {
+      attributes: {
+        exclude: ["otp", "otpExpiry", "isVerified"], // Exclude sensitive fields
+      },
+      include: [
+        {
+          model: GroupAccount,
+          attributes: ["groupName"], // Fetch only the group name
+          through: { attributes: [] }, // Don't include 'through' attributes like userId, groupId
+        },
+      ],
+    });
+
+    if (!user) {
+      return next(new appError("User not found", 404));
+    }
+    res.status(200).json({
+      status: "success",
+      data: user, // User will have the associated groups
+    });
+  } else {
+    let user = await GroupAccount.findByPk(userId, {
+      include: [
+        {
+          model: IndividualUser,
+          attributes: ["fullName"], // Fetch the individual's full name
+          through: { attributes: [] }, // Don't include 'through' attributes like userId, groupId
+        },
+      ],
+    });
+
+    if (!user) {
+      return next(new appError("User not found", 404));
+    }
+    res.status(200).json({
+      status: "success",
+      data: user, // User will have the associated groups
+    });
+  }
 });
