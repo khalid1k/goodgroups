@@ -5,21 +5,13 @@ const appError = require("../utils/appError");
 const IndividualUser = require("../models/individual-account");
 const GroupAccount = require("../models/group-account");
 const jwt = require("jsonwebtoken");
-const signToken = (id, accountType) => {
-  return jwt.sign({ id, accountType }, process.env.TOKEN_SECRET, {
+const signToken = (id) => {
+  return jwt.sign({ id }, process.env.TOKEN_SECRET, {
     expiresIn: "90d",
   });
 };
 const createSendToken = (user, statusCode, res, accountType) => {
-  const cookieOptions = {
-    expires: new Date(
-      Date.now() + process.env.JWT_COOKIES_EXPIRES * 24 * 60 * 60 * 1000
-    ),
-    secure: true,
-    httpOnly: true,
-  };
-  const token = signToken(user.id, accountType);
-  res.cookie("jwt", token, cookieOptions, accountType);
+  const token = signToken(user.id);
   res.status(statusCode).json({
     message: "success",
     token,

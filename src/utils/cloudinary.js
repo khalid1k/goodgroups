@@ -10,6 +10,7 @@ const upload = multer({
 }).fields([
   { name: "images", maxCount: 15 }, // Accepts up to 5 files with the key "images"
   { name: "waiver", maxCount: 1 }, // Accepts 1 file with the key "waiver"
+  { name: "profilePhoto", maxCount: 1 }, // Accepts 1 file with the key "waiver"
 ]);
 
 // Configure Cloudinary

@@ -333,16 +333,16 @@ exports.updateOpportunityList = catchAsync(async (req, res, next) => {
     updates.waiver = waiverUrl;
   }
 
-  const filteredData = Object.fromEntries(
-    Object.entries(updates).filter(
-      ([_, value]) =>
-        value !== undefined &&
-        value !== null &&
-        !(Array.isArray(value) && value.length === 0) &&
-        !(typeof value === "object" && Object.keys(value).length === 0) &&
-        value !== ""
-    )
-  );
+  // const filteredData = Object.fromEntries(
+  //   Object.entries(updates).filter(
+  //     ([_, value]) =>
+  //       value !== undefined &&
+  //       value !== null &&
+  //       !(Array.isArray(value) && value.length === 0) &&
+  //       !(typeof value === "object" && Object.keys(value).length === 0) &&
+  //       value !== ""
+  //   )
+  // );
 
   const requiredFields = [
     "userId",
@@ -372,17 +372,19 @@ exports.updateOpportunityList = catchAsync(async (req, res, next) => {
     "waiverType",
   ];
 
+  // const isComplete = requiredFields.every((field) =>
+  //   filteredData.hasOwnProperty(field)
+  // );
   const isComplete = requiredFields.every((field) =>
-    filteredData.hasOwnProperty(field)
+    updates.hasOwnProperty(field)
   );
   // const missingFields = requiredFields.filter(
   //   (field) => !filteredData.hasOwnProperty(field)
   // );
-  filteredData.listingStatus = isComplete ? "published" : "inprogress";
+  updates.listingStatus = isComplete ? "published" : "inprogress";
 
   // Update opportunity with filtered fields
-
-  const updatedOpportunity = await opportunity.update(filteredData);
+  const updatedOpportunity = await opportunity.update(updates);
   // Respond with success
   res.status(200).json({
     status: "success",

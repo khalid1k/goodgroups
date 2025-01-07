@@ -14,6 +14,7 @@ const appError = require("../utils/appError");
 // const socialTokenHelper = require("../helpers/googleSocialToken");
 const { generateOtp, hashOtp } = require("../utils/otpUtils");
 const { register } = require("module");
+const { uploadToCloudinary } = require("../utils/cloudinary");
 const {
   verifyAppleToken,
   verifyFacebookToken,
@@ -21,7 +22,8 @@ const {
   verifyMicrosoftToken,
   verifyGoogleToken,
 } = require("../helpers/socialSigninHelper");
-const { identifyUserType } = require("../utils/userUtills");
+const { getUserById, identifyUserType } = require("../utils/userUtills");
+const BlacklistedToken = require("../models/blacklistedToken");
 // const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.TOKEN_SECRET, {
@@ -29,15 +31,7 @@ const signToken = (id) => {
   });
 };
 const createSendToken = (user, statusCode, res, message, accountType) => {
-  const cookieOptions = {
-    expires: new Date(
-      Date.now() + process.env.JWT_COOKIES_EXPIRES * 24 * 60 * 60 * 1000
-    ),
-    secure: true,
-    httpOnly: true,
-  };
-  const token = signToken({ id: user.id, accountType });
-  res.cookie("jwt", token, cookieOptions, accountType);
+  const token = signToken({ id: user.id });
   res.status(statusCode).json({
     message: message,
     token,
@@ -46,6 +40,24 @@ const createSendToken = (user, statusCode, res, message, accountType) => {
     accountType,
   });
 };
+// const createSendToken = (user, statusCode, res, message, accountType) => {
+//   const cookieOptions = {
+//     expires: new Date(
+//       Date.now() + process.env.JWT_COOKIES_EXPIRES * 24 * 60 * 60 * 1000
+//     ),
+//     secure: true,
+//     httpOnly: true,
+//   };
+//   const token = signToken({ id: user.id, accountType });
+//   res.cookie("jwt", token, cookieOptions, accountType);
+//   res.status(statusCode).json({
+//     message: message,
+//     token,
+//     email: user.email,
+//     userId: user.id,
+//     accountType,
+//   });
+// };
 
 exports.signUp = catchAsync(async (req, res, next) => {
   const { fullName, username, email, birthday, mobileNumber, referralCode } =
@@ -478,6 +490,41 @@ exports.deleteUser = async (req, res) => {
 //   next();
 // });
 
+// exports.protectRoute = catchAsync(async (req, res, next) => {
+//   let token;
+
+//   // Extract the token from the authorization header
+//   if (
+//     req.headers.authorization &&
+//     req.headers.authorization.startsWith("Bearer")
+//   ) {
+//     token = req.headers.authorization.split(" ")[1];
+//   }
+
+//   if (!token) {
+//     return next(
+//       new appError("You are not logged in. Please log in to access.", 401)
+//     );
+//   }
+
+//   // Verify the token
+//   const decoded = await promisify(jwt.verify)(token, process.env.TOKEN_SECRET);
+//   const user = await getUserById(decoded.id);
+
+//   // If no user is found, return an error
+//   if (!user) {
+//     return next(
+//       new appError("The user associated with this token does not exist.", 401)
+//     );
+//   }
+
+//   // Attach the user to the request object
+//   req.user = user;
+
+//   // Grant access to the route
+//   next();
+// });
+
 exports.protectRoute = catchAsync(async (req, res, next) => {
   let token;
 
@@ -495,40 +542,43 @@ exports.protectRoute = catchAsync(async (req, res, next) => {
     );
   }
 
-  // Verify the token
-  const decoded = await promisify(jwt.verify)(token, process.env.TOKEN_SECRET);
+  // Check if the token is blacklisted
+  const blacklistedToken = await BlacklistedToken.findOne({ where: { token } });
 
-  // Ensure the token contains a userType field
-  if (!decoded.accountType) {
-    return next(new appError("Invalid token: account type is missing.", 400));
-  }
-
-  let user;
-
-  // Determine user based on accountType
-  if (decoded.accountType === "IndividualUser") {
-    user = await IndividualUser.findByPk(decoded.id); // Query using primary key
-  } else if (decoded.accountType === "GroupAccount") {
-    user = await GroupAccount.findByPk(decoded.id); // Query using primary key
-  } else {
+  if (blacklistedToken) {
     return next(
-      new appError("Invalid account type provided in the token.", 400)
+      new appError("This token has been logged out or invalidated.", 401)
     );
   }
 
-  // If no user is found, return an error
-  if (!user) {
-    return next(
-      new appError("The user associated with this token does not exist.", 401)
+  try {
+    // Verify the token
+    const decoded = await promisify(jwt.verify)(
+      token,
+      process.env.TOKEN_SECRET
     );
+
+    // Check if the user exists
+    const user = await getUserById(decoded.id);
+    if (!user) {
+      return next(
+        new appError("The user associated with this token does not exist.", 401)
+      );
+    }
+
+    // Attach the user to the request object
+    req.user = user;
+
+    // Grant access to the route
+    next();
+  } catch (err) {
+    if (err.name === "TokenExpiredError") {
+      return next(
+        new appError("Your session has expired. Please log in again.", 401)
+      );
+    }
+    return next(new appError("Invalid token. Please log in again.", 401));
   }
-
-  // Attach the user and account type to the request object
-  req.user = user;
-  req.accountType = decoded.accountType;
-
-  // Grant access to the route
-  next();
 });
 
 //controller to get the users with their groups
@@ -579,4 +629,60 @@ exports.getUserWithGroups = catchAsync(async (req, res, next) => {
       data: user, // User will have the associated groups
     });
   }
+});
+
+exports.updateIndividualUser = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  if (!id) {
+    return next(new appError("userId is required"), 404);
+  }
+  if (Object.keys(req.body).length === 0) {
+    return next(new appError("there are no fields to update", 404));
+  }
+  const user = await IndividualUser.findByPk(id);
+  if (!user) {
+    return next(new appError("user not found ", 404));
+  }
+  console.log("body data is ", req.body);
+  const data = req.body;
+  let profilePhotoUrl;
+  if (req.files.profilePhoto && req.files.profilePhoto.length > 0) {
+    const profilePhotoFile = req.files.profilePhoto[0];
+    const profilePhotoName = `${Date.now()}-${profilePhotoFile.originalname}`;
+    profilePhotoUrl = await uploadToCloudinary(
+      profilePhotoFile.buffer,
+      profilePhotoName
+    ); // Upload profilePhoto
+  }
+
+  const updates = { ...user.toJSON(), ...data };
+  updates.photo = profilePhotoUrl;
+  console.log("data before updates is ", updates);
+  const updatedUser = await user.update(updates);
+  // Respond with success
+  res.status(200).json({
+    status: "success",
+    message: "user updated successfully.",
+    // data: updatedUser,
+  });
+});
+
+exports.logout = catchAsync(async (req, res, next) => {
+  const token = req.headers.authorization.split(" ")[1];
+
+  if (!token) {
+    return next(new appError("Token is required to logout.", 400));
+  }
+
+  // Decode the token to get the expiry date
+  const decoded = await promisify(jwt.verify)(token, process.env.TOKEN_SECRET);
+  const expiryDate = new Date(decoded.exp * 1000); // Convert from seconds to milliseconds
+
+  // Add the token to the blacklist with the expiry date
+  await BlacklistedToken.create({ token, expiryDate });
+
+  res.status(200).json({
+    status: "success",
+    message: "Logged out successfully.",
+  });
 });

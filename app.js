@@ -17,6 +17,7 @@ const groupRoutes = require("./src/routes/groupRoutes");
 const xss = require("xss-clean");
 const helmet = require("helmet");
 const app = express();
+require("./src/utils/cron-jobs/tokenCleanup");
 const path = require("path");
 const PORT = 3000;
 app.use(helmet());
