@@ -1,6 +1,9 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
+const crypto = require("crypto");
+const getQuarterFromDate = require("../helpers/getQuarter");
+const QuarterlyStats = require("../models/quarterlyStats");
 const IndividualUser = sequelize.define(
   "IndividualUser",
   {
@@ -71,10 +74,92 @@ const IndividualUser = sequelize.define(
     languages: {
       type: DataTypes.ARRAY(DataTypes.STRING),
     },
+    followers: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    points: {
+      type: DataTypes.BIGINT,
+      defaultValue: 0,
+    },
+    isInfluencer: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+    },
+    isManger: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    levels: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    connections: {
+      type: DataTypes.BIGINT,
+      defaultValue: 0,
+    },
+    referral: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    presidentialRewards: {
+      type: DataTypes.ENUM("0", "1", "2", "3"),
+      defaultValue: "0",
+    },
+    referralCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    cancellation: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+IndividualUser.beforeCreate(async (user) => {
+  // Generate referral code based on the UUID
+  const hash = crypto.createHash("md5").update(user.id).digest("hex");
+  user.referralCode = parseInt(hash.slice(0, 8), 16).toString().slice(0, 8); // Shortened code
+});
+
+// IndividualUser.addHook("afterUpdate", async (user, options) => {
+//   const { hours, referralCount, donation, cancellation, id, updatedAt } = user;
+
+//   // Get the current quarter and year
+//   const currentYear = updatedAt.getFullYear();
+//   const currentQuarter = getQuarterFromDate(updatedAt);
+
+//   // Check if any of the fields have changed
+//   if (
+//     user.previous("hours") !== hours ||
+//     user.previous("referralCount") !== referralCount ||
+//     user.previous("donation") !== donation ||
+//     user.previous("cancellation") !== cancellation
+//   ) {
+//     // Update or create new quarterly stats for this user
+//     await QuarterlyStats.upsert({
+//       userId: id,
+//       year: currentYear,
+//       quarter: currentQuarter,
+//       hours,
+//       referralCount,
+//       donation,
+//       cancellation,
+//     });
+//   }
+// });
+
+// IndividualUser.hasMany(QuarterlyStats, {
+//   foreignKey: "userId",
+//   onDelete: "CASCADE",
+// });
+// QuarterlyStats.belongsTo(IndividualUser, {
+//   foreignKey: "userId",
+//   onDelete: "CASCADE",
+// });
 
 module.exports = IndividualUser;

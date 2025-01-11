@@ -9,6 +9,7 @@ const { Sequelize } = require("../config/db");
 const catchAsync = require("../utils/catchAsync");
 const IndividualUser = require("../models/individual-account");
 const GroupAccount = require("../models/group-account");
+const Referral = require("../models/referral");
 const sendEmail = require("../utils/email");
 const appError = require("../utils/appError");
 // const socialTokenHelper = require("../helpers/googleSocialToken");
@@ -99,6 +100,20 @@ exports.signUp = catchAsync(async (req, res, next) => {
     otpExpiry,
     isVerified: false,
   });
+  if (referralCode) {
+    const referrer = await IndividualUser.findOne({ where: { referralCode } });
+    if (referrer) {
+      // Increase referrer's referral count
+      referrer.referralCount = (referrer.referralCount || 0) + 1;
+      await referrer.save();
+
+      // Log the referral in the Referral table
+      await Referral.create({
+        referrerId: referrer.id,
+        referredUserId: newUser.id,
+      });
+    }
+  }
 
   await sendEmail({
     email: newUser.email,
@@ -438,92 +453,6 @@ exports.deleteUser = async (req, res) => {
     return res.status(500).json({ message: "Internal server error.", error });
   }
 };
-
-// exports.protect = catchAsync(async (req, res, next) => {
-//   let token;
-
-//   // Extract the token from the authorization header
-//   if (
-//     req.headers.authorization &&
-//     req.headers.authorization.startsWith("Bearer")
-//   ) {
-//     token = req.headers.authorization.split(" ")[1];
-//   }
-
-//   if (!token) {
-//     return next(
-//       new appError("You are not logged in. Please log in to access.", 401)
-//     );
-//   }
-
-//   // Verify the token
-//   const decoded = await promisify(jwt.verify)(token, process.env.TOKEN_SECRET);
-
-//   // Ensure the token contains a userType field
-//   if (!decoded.userType) {
-//     return next(new appError("Invalid token: user type is missing.", 400));
-//   }
-
-//   let user;
-
-//   // Determine user based on userType
-//   if (decoded.accountType === "IndividualUser") {
-//     user = await IndividualUser.findOne({ where: { id: decoded.id } });
-//   } else if (decoded.accountType === "GroupAccount") {
-//     user = await GroupAccount.findOne({ where: { id: decoded.id } });
-//   } else {
-//     return next(new appError("Invalid user type provided in the token.", 400));
-//   }
-
-//   // If no user is found, return an error
-//   if (!user) {
-//     return next(
-//       new appError("The user associated with this token does not exist.", 401)
-//     );
-//   }
-
-//   // Attach the user and user type to the request object
-//   req.user = user;
-//   req.accountType = decoded.accountType;
-
-//   // Grant access to the route
-//   next();
-// });
-
-// exports.protectRoute = catchAsync(async (req, res, next) => {
-//   let token;
-
-//   // Extract the token from the authorization header
-//   if (
-//     req.headers.authorization &&
-//     req.headers.authorization.startsWith("Bearer")
-//   ) {
-//     token = req.headers.authorization.split(" ")[1];
-//   }
-
-//   if (!token) {
-//     return next(
-//       new appError("You are not logged in. Please log in to access.", 401)
-//     );
-//   }
-
-//   // Verify the token
-//   const decoded = await promisify(jwt.verify)(token, process.env.TOKEN_SECRET);
-//   const user = await getUserById(decoded.id);
-
-//   // If no user is found, return an error
-//   if (!user) {
-//     return next(
-//       new appError("The user associated with this token does not exist.", 401)
-//     );
-//   }
-
-//   // Attach the user to the request object
-//   req.user = user;
-
-//   // Grant access to the route
-//   next();
-// });
 
 exports.protectRoute = catchAsync(async (req, res, next) => {
   let token;

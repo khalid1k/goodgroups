@@ -1,17 +1,34 @@
 const express = require("express");
 const router = express.Router();
 const authController = require("../controller/authController");
+const userController = require("../controller/userController");
 const { upload } = require("../utils/cloudinary");
 router.post("/signup", authController.signUp);
 router.post("/login", authController.login);
 router.post("/signupGroup", authController.signUpGroup);
-router.post("/logout", authController.logout);
+router.post("/logout", authController.protectRoute, authController.logout);
 router.post("/forgot-password", authController.forgotPassword);
 router.post("/reset-password/:token", authController.resetPassword);
 router.get("/getRecords", authController.getRecords);
 router.delete("/delete-user/:email", authController.deleteUser);
-router.get("/get-user-with-groups/:userId", authController.getUserWithGroups);
-router.put("/update-user/:id", upload, authController.updateIndividualUser);
+router.get(
+  "/get-user-with-groups/:userId",
+  authController.protectRoute,
+  authController.getUserWithGroups
+);
+router.put(
+  "/update-user/:id",
+  authController.protectRoute,
+  upload,
+  authController.updateIndividualUser
+);
+router.patch("/change-user-level", userController.changeUserLevel);
+router.patch("/change-user-points", userController.changeUserPoints);
+router.get(
+  "/get-sorted-users-by-hours/:id",
+  userController.getUsersAroundSpecifiedUser
+);
+router.get("/get-user-hours-dob/:id", userController.getUserHoursAndDob);
 // Render reset password page
 // router.get("/reset-Password/:token", async (req, res, next) => {
 //   const token = req.params.token;

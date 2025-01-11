@@ -10,13 +10,15 @@ const signToken = (id) => {
     expiresIn: "90d",
   });
 };
-const createSendToken = (user, statusCode, res, accountType) => {
+const createSendToken = (user, statusCode, res, accountType, email, name) => {
   const token = signToken(user.id);
   res.status(statusCode).json({
     message: "success",
     token,
     userId: user.id,
     accountType,
+    email,
+    name,
   });
 };
 
@@ -39,13 +41,19 @@ exports.verifyOtp = catchAsync(async (req, res, next) => {
   if (hashedInputOtp !== user.otp) {
     return next(new appError("Invalid OTP.", 400));
   }
+  let name;
+  if (accountType === "IndividualUser") {
+    name = user.fullName;
+  } else {
+    name = user.groupName;
+  }
 
   // Mark the user as verified
   user.isVerified = true;
   user.otp = null; // Clear OTP
   user.otpExpiry = null; // Clear OTP expiry
   await user.save();
-  createSendToken(user, 200, res, accountType);
+  createSendToken(user, 200, res, accountType, user.email, name);
 });
 
 // controller to resend the otp

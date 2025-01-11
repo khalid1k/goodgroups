@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const appError = require("./src/utils/appError");
 const globalErrorHandler = require("./src/controller/errorController");
-const bodyParser = require("body-parser");
 const rateLimit = require("express-rate-limit");
 const { connectDB, sequelize } = require("./src/config/db");
 const userRoutes = require("./src/routes/userRoutes");
