@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "generateDoc": "node swagger.js"
   },
   "author": "",
   "license": "ISC",
@@ -32,7 +33,11 @@
     "pg-hstore": "^2.3.4",
     "pug": "^3.0.3",
     "sequelize": "^6.37.5",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^11.0.3",
     "xss-clean": "^0.1.4"
+  },
+  "devDependencies": {
+    "swagger-autogen": "^2.23.7"
   }
 }

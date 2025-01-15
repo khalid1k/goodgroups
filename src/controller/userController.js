@@ -34,7 +34,7 @@ exports.changeUserPoints = catchAsync(async (req, res, next) => {
   if (!user) {
     return next(new appError("user not found", 404));
   }
-  user.points = (user.points || 0) + Number(pointsValue);
+  user.points = (Number(user.points) || 0) + Number(pointsValue);
   await user.save();
   res.status(200).json({
     status: "success",

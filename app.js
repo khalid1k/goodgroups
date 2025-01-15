@@ -21,7 +21,6 @@ const path = require("path");
 const PORT = 3000;
 app.use(helmet());
 // Middleware
-// app.use(bodyParser.json());
 app.use(express.json({ limit: "10kb" }));
 app.use(xss());
 app.set("trust proxy", 1);
@@ -36,12 +35,15 @@ app.use(express.static("src/public"));
 app.set("view engine", "pug");
 app.set("views", path.join(__dirname, "src", "views")); // Folder for Pug files
 app.use(express.urlencoded({ extended: true }));
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocument = require("./swagger-output.json");
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use(socialAuthRoutes);
-app.use("/user", userRoutes);
-app.use("/otp", otpRoute);
-app.use("/opportunities", opportunitiesRoute);
-app.use("/volunteer", volunteerRoutes);
-app.use("/review", reviewRoutes);
+app.use("/api/v1/user", userRoutes);
+app.use("/api/v1/otp", otpRoute);
+app.use("/api/v1/opportunities", opportunitiesRoute);
+app.use("/api/v1/volunteer", volunteerRoutes);
+app.use("/api/v1/review", reviewRoutes);
 app.use("/api/v1/reserved-opportunities", reservedOpportunityRoutes);
 app.use("/api/v1/invitation", invitationRoutes);
 app.use("/api/v1/groups", groupRoutes);

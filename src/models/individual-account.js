@@ -3,7 +3,6 @@ const { sequelize } = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
 const crypto = require("crypto");
 const getQuarterFromDate = require("../helpers/getQuarter");
-const QuarterlyStats = require("../models/quarterlyStats");
 const IndividualUser = sequelize.define(
   "IndividualUser",
   {
@@ -126,40 +125,31 @@ IndividualUser.beforeCreate(async (user) => {
   user.referralCode = parseInt(hash.slice(0, 8), 16).toString().slice(0, 8); // Shortened code
 });
 
-// IndividualUser.addHook("afterUpdate", async (user, options) => {
-//   const { hours, referralCount, donation, cancellation, id, updatedAt } = user;
+IndividualUser.addHook("afterUpdate", async (user, options) => {
+  const { hours, referralCount, donation, cancellation, id, updatedAt } = user;
 
-//   // Get the current quarter and year
-//   const currentYear = updatedAt.getFullYear();
-//   const currentQuarter = getQuarterFromDate(updatedAt);
+  // Get the current quarter and year
+  const currentYear = updatedAt.getFullYear();
+  const currentQuarter = getQuarterFromDate(updatedAt);
 
-//   // Check if any of the fields have changed
-//   if (
-//     user.previous("hours") !== hours ||
-//     user.previous("referralCount") !== referralCount ||
-//     user.previous("donation") !== donation ||
-//     user.previous("cancellation") !== cancellation
-//   ) {
-//     // Update or create new quarterly stats for this user
-//     await QuarterlyStats.upsert({
-//       userId: id,
-//       year: currentYear,
-//       quarter: currentQuarter,
-//       hours,
-//       referralCount,
-//       donation,
-//       cancellation,
-//     });
-//   }
-// });
-
-// IndividualUser.hasMany(QuarterlyStats, {
-//   foreignKey: "userId",
-//   onDelete: "CASCADE",
-// });
-// QuarterlyStats.belongsTo(IndividualUser, {
-//   foreignKey: "userId",
-//   onDelete: "CASCADE",
-// });
+  // Check if any of the fields have changed
+  if (
+    user.previous("hours") !== hours ||
+    user.previous("referralCount") !== referralCount ||
+    user.previous("donation") !== donation ||
+    user.previous("cancellation") !== cancellation
+  ) {
+    // Update or create new quarterly stats for this user
+    await QuarterlyStats.upsert({
+      userId: id,
+      year: currentYear,
+      quarter: currentQuarter,
+      hours,
+      referralCount,
+      donation,
+      cancellation,
+    });
+  }
+});
 
 module.exports = IndividualUser;

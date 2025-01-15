@@ -11,6 +11,7 @@ const IndividualUser = require("../models/individual-account");
 const GroupAccount = require("../models/group-account");
 const { identifyUserType } = require("../utils/userUtills");
 exports.createOpportunityList = catchAsync(async (req, res, next) => {
+  const data = req.body;
   //this function is used to handle the wrong format data into the required format
   const parseIfArrayOrObject = (value) => {
     if (value == null) return value; // Handle null or undefined
@@ -55,8 +56,6 @@ exports.createOpportunityList = catchAsync(async (req, res, next) => {
     // Return value as is if no conditions match
     return value;
   };
-
-  const data = req.body;
 
   Object.keys(data).forEach((key) => {
     data[key] = parseIfArrayOrObject(data[key]);
